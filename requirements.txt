@@ -1,0 +1,5 @@
+# Create requirements.txt
+pytest
+openmeteo-requests
+git+https://github.com/Meteomatics/python-connector-api.git
+git+https://github.com/Meteosource/pymeteosource

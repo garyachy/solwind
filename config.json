@@ -1,0 +1,13 @@
+{
+  "Meteomatics": {
+    "username": "nordik_haryachyy_denys",
+    "password": "XX96dpGSs8"
+  },
+  "Meteosource": {
+    "api_key": "cv75uxpupa3el1t0c82lc4vjhy4fw50ffzvgup32"
+  },
+  "Location": {
+    "latitude": 50.4501,
+    "longitude": 30.5234
+  }
+}
