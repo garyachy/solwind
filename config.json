@@ -6,6 +6,9 @@
   "Meteosource": {
     "api_key": "cv75uxpupa3el1t0c82lc4vjhy4fw50ffzvgup32"
   },
+  "VisualCrossing": {
+    "api_key": "QJUV7PUS36Y9AQD3FEMBBH5BX"
+  },
   "Location": {
     "latitude": 50.4501,
     "longitude": 30.5234
