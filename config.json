@@ -9,6 +9,9 @@
   "VisualCrossing": {
     "api_key": "QJUV7PUS36Y9AQD3FEMBBH5BX"
   },
+  "Openmeteo": {
+    "api_key": "3in6xeLVaaOUrBXv"
+  },
   "Location": {
     "latitude": 50.4501,
     "longitude": 30.5234
