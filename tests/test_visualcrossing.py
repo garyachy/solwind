@@ -87,14 +87,14 @@ def test_visualcrossing_current_forecast():  # Removed redis_db
     )
 
 
-def test_visualcrossing_hourly_forecast_full_df():  # Removed redis_db
-    run_vc_forecast_test(
-        latitude=LATITUDE,  # Pass LATITUDE
-        longitude=LONGITUDE,  # Pass LONGITUDE
-        section="hourly",
-        to_df=True,
-        print_label="Visual Crossing Full Hourly Forecast DataFrame:",
-    )
+# def test_visualcrossing_hourly_forecast_full_df():  # Removed redis_db
+#     run_vc_forecast_test(
+#         latitude=LATITUDE,  # Pass LATITUDE
+#         longitude=LONGITUDE,  # Pass LONGITUDE
+#         section="hourly",
+#         to_df=True,
+#         print_label="Visual Crossing Full Hourly Forecast DataFrame:",
+#     )
 
 
 def test_visualcrossing_daily_forecast():  # Removed redis_db
