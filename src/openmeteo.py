@@ -195,7 +195,8 @@ class OpenMeteo:
 
     def load_data(
         self,
-        stations,
+        latitudes,
+        longitudes,
         time_delta,
         params_15m=params_minutely_15,
         params_hourly=params_hourly,
@@ -206,8 +207,6 @@ class OpenMeteo:
     ):
         try:
             # Make the API call with the given parameters
-            latitudes = ",".join([str(station.latitude) for station in stations])
-            longitudes = ",".join([str(station.longitude) for station in stations])
             params = {
                 "latitude": latitudes,
                 "longitude": longitudes,
