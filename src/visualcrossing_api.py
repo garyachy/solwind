@@ -26,7 +26,6 @@ class VisualCrossingAPI:
         longitude,
         start_datetime=None,
         end_datetime=None,
-        aggregate_minutes=None,
     ):
         """
         Retrieves weather forecast data from Visual Crossing API.
@@ -36,7 +35,6 @@ class VisualCrossingAPI:
             longitude (float): Longitude of the location.
             start_datetime (str, optional): Start datetime for the forecast. Defaults to None.
             end_datetime (str, optional): End datetime for the forecast. Defaults to None.
-            aggregate_minutes (int, optional): Aggregate minutes for the forecast. Defaults to None.
 
         Returns:
             dict: JSON response from the Visual Crossing API.
@@ -58,13 +56,10 @@ class VisualCrossingAPI:
             "unitGroup": "metric",
             "lang": "en",
             "contentType": "json",
+            # Always request the 'hours' section.
+            # If aggregateMinutes is also set, this 'hours' section should be the one that gets aggregated.
+            "include": "hours",
         }
-
-        if aggregate_minutes:
-            params["aggregateMinutes"] = aggregate_minutes
-            params["include"] = "hours"
-        else:
-            params["include"] = "hours"
 
         response = requests.get(url, params=params)
         response.raise_for_status()
