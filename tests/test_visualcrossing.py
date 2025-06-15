@@ -77,30 +77,20 @@ def run_vc_forecast_test(
         assert False, f"Error for location {latitude},{longitude}: {e}"
 
 
-def test_visualcrossing_current_forecast():  # Removed redis_db
+def test_visualcrossing_current_forecast():
     run_vc_forecast_test(
-        latitude=LATITUDE,  # Pass LATITUDE
-        longitude=LONGITUDE,  # Pass LONGITUDE
+        latitude=LATITUDE,
+        longitude=LONGITUDE,
         section="current",
         to_df=False,
         print_label="Visual Crossing Current Data:",
     )
 
 
-# def test_visualcrossing_hourly_forecast_full_df():  # Removed redis_db
-#     run_vc_forecast_test(
-#         latitude=LATITUDE,  # Pass LATITUDE
-#         longitude=LONGITUDE,  # Pass LONGITUDE
-#         section="hourly",
-#         to_df=True,
-#         print_label="Visual Crossing Full Hourly Forecast DataFrame:",
-#     )
-
-
-def test_visualcrossing_daily_forecast():  # Removed redis_db
+def test_visualcrossing_daily_forecast():
     run_vc_forecast_test(
-        latitude=LATITUDE,  # Pass LATITUDE
-        longitude=LONGITUDE,  # Pass LONGITUDE
+        latitude=LATITUDE,
+        longitude=LONGITUDE,
         section="daily",
         to_df=True,
         print_label="Visual Crossing Daily Data as DataFrame:",
