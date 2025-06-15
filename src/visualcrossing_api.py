@@ -1,4 +1,5 @@
 import requests
+import pandas as pd
 
 
 class VisualCrossingAPI:
@@ -28,7 +29,7 @@ class VisualCrossingAPI:
         end_datetime=None,
     ):
         """
-        Retrieves weather forecast data from Visual Crossing API.
+        Retrieves weather forecast data from Visual Crossing API and returns it as a pandas DataFrame.
 
         Args:
             latitude (float): Latitude of the location.
@@ -37,11 +38,14 @@ class VisualCrossingAPI:
             end_datetime (str, optional): End datetime for the forecast. Defaults to None.
 
         Returns:
-            dict: JSON response from the Visual Crossing API.
+            pandas.DataFrame: DataFrame containing the hourly forecast data,
+                              with the first column as 'timestamp' and other columns
+                              representing weather parameters.
 
         Raises:
             ValueError: If latitude or longitude is None.
             requests.exceptions.HTTPError: If the HTTP request returns an error status code.
+            KeyError: If the 'days' or 'hours' section is not found in the API response.
         """
         if latitude is None or longitude is None:
             raise ValueError("Latitude or longitude cannot be None.")
@@ -56,11 +60,37 @@ class VisualCrossingAPI:
             "unitGroup": "metric",
             "lang": "en",
             "contentType": "json",
-            # Always request the 'hours' section.
-            # If aggregateMinutes is also set, this 'hours' section should be the one that gets aggregated.
             "include": "hours",
         }
 
         response = requests.get(url, params=params)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+
+        all_hours_data = []
+        if "days" in data:
+            for day_data in data["days"]:
+                if "hours" in day_data:
+                    all_hours_data.extend(day_data["hours"])
+
+        if not all_hours_data:
+            if "hours" in data:
+                all_hours_data = data["hours"]
+            elif "days" in data and data["days"] and "hours" in data["days"][0]:
+                all_hours_data = data["days"][0]["hours"]
+            else:
+                pass
+
+        if not all_hours_data:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(all_hours_data)
+
+        if "datetimeEpoch" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
+            cols = ["timestamp"] + [
+                col for col in df.columns if col not in ["timestamp", "datetimeEpoch"]
+            ]
+            df = df[cols]
+
+        return df
