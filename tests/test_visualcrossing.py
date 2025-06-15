@@ -1,26 +1,24 @@
 import requests
-import pandas as pd  # Added import for pandas
+import pandas as pd
 from config import load_config
 
 # Load configuration
 config = load_config()
 visualcrossing_config = config.get("VisualCrossing", {})
-location_config = config.get("Location", {})  # Added to load location
+location_config = config.get("Location", {})
 API_KEY = visualcrossing_config.get("api_key")
-LATITUDE = location_config.get("latitude")  # Added latitude
-LONGITUDE = location_config.get("longitude")  # Added longitude
+LATITUDE = location_config.get("latitude")
+LONGITUDE = location_config.get("longitude")
 
 BASE_URL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline"
 
 
 def get_visualcrossing_forecast(lat, lon, section="current"):
-    # section: "current", "hours", "days"
     if not API_KEY:
         raise ValueError("API_KEY not found in config.json for VisualCrossing")
-    if lat is None or lon is None:  # Added check for lat/lon
+    if lat is None or lon is None:
         raise ValueError("Latitude or longitude not found in config.json")
     url = f"{BASE_URL}/{lat},{lon}"
-    # Map section to correct Visual Crossing 'include' value
     include_map = {"current": "current", "hourly": "hours", "daily": "days"}
     include = include_map.get(section, section)
     params = {
@@ -35,17 +33,9 @@ def get_visualcrossing_forecast(lat, lon, section="current"):
     return response.json()
 
 
-def run_vc_forecast_test(
-    latitude, longitude, section, to_df=False, print_label=None
-):  # Changed station to latitude, longitude
+def run_vc_forecast_test(latitude, longitude, section, to_df=False, print_label=None):
     try:
-        data = get_visualcrossing_forecast(
-            latitude, longitude, section
-        )  # Use latitude, longitude
-        # Debug print can be removed or kept based on preference
-        # print(
-        #     f"DEBUG: Response keys for {latitude},{longitude}: {list(data.keys())}"
-        # )
+        data = get_visualcrossing_forecast(latitude, longitude, section)
         if section == "current":
             assert (
                 "currentConditions" in data
