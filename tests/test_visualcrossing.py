@@ -1,6 +1,7 @@
-import requests
 import pandas as pd
 from config import load_config
+from datetime import datetime, timedelta
+from visualcrossing_api import VisualCrossingAPI
 
 # Load configuration
 config = load_config()
@@ -10,78 +11,40 @@ API_KEY = visualcrossing_config.get("api_key")
 LATITUDE = location_config.get("latitude")
 LONGITUDE = location_config.get("longitude")
 
-BASE_URL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline"
+# Initialize VisualCrossingAPI
+visual_crossing_api = VisualCrossingAPI(API_KEY)
 
 
-def get_visualcrossing_forecast(lat, lon, section="current"):
-    if not API_KEY:
-        raise ValueError("API_KEY not found in config.json for VisualCrossing")
-    if lat is None or lon is None:
-        raise ValueError("Latitude or longitude not found in config.json")
-    url = f"{BASE_URL}/{lat},{lon}"
-    include_map = {"current": "current", "hourly": "hours", "daily": "days"}
-    include = include_map.get(section, section)
-    params = {
-        "key": API_KEY,
-        "unitGroup": "metric",
-        "include": include,
-        "lang": "en",
-        "contentType": "json",
-    }
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    return response.json()
+def test_visualcrossing_forecast():
+    now = datetime.utcnow()
+    thirty_mins_ago = now - timedelta(minutes=30)
+    end_dt_str = now.strftime("%Y-%m-%dT%H:%M:%S")
+    start_dt_str = thirty_mins_ago.strftime("%Y-%m-%dT%H:%M:%S")
 
+    # Calculate expected number of 15-min intervals
+    time_difference = now - thirty_mins_ago
+    expected_intervals = int(time_difference.total_seconds() / (15 * 60))
 
-def run_vc_forecast_test(latitude, longitude, section, to_df=False, print_label=None):
+    # Assert that the number of data points matches the expected number of intervals
     try:
-        data = get_visualcrossing_forecast(latitude, longitude, section)
-        if section == "current":
-            assert (
-                "currentConditions" in data
-            ), f"Current data not found for {latitude},{longitude}"
-            result = data["currentConditions"]
-        elif section == "hourly":
-            assert "hours" in data, f"Hourly data not found for {latitude},{longitude}"
-            result = data["hours"]
-        elif section == "daily":
-            assert "days" in data, f"Daily data not found for {latitude},{longitude}"
-            result = data["days"]
+        data = visual_crossing_api.get_forecast(
+            latitude=LATITUDE,
+            longitude=LONGITUDE,
+            start_datetime=start_dt_str,
+            end_datetime=end_dt_str,
+            aggregate_minutes=15,
+        )
+        if "hours" in data:
+            actual_intervals = len(data["hours"])
+        elif "days" in data and data["days"]:
+            actual_intervals = sum(len(day["hours"]) for day in data["days"])
         else:
-            raise ValueError("Unknown section")
-        if to_df:
-            df = pd.DataFrame(result if isinstance(result, list) else [result])
-            assert not df.empty, f"{section} dataframe empty for {latitude},{longitude}"
-            if print_label:
-                print(f"{print_label} [{latitude},{longitude}]")
-                print(df)
-        else:
-            assert (
-                result is not None
-            ), f"{section} data empty for {latitude},{longitude}"
-            if print_label:
-                print(f"{print_label} [{latitude},{longitude}]")
-                print(result)
+            actual_intervals = 0
+
+        assert (
+            actual_intervals == expected_intervals
+        ), f"Expected {expected_intervals} intervals, but got {actual_intervals} intervals"
+
     except Exception as e:
         print(e)
-        assert False, f"Error for location {latitude},{longitude}: {e}"
-
-
-def test_visualcrossing_current_forecast():
-    run_vc_forecast_test(
-        latitude=LATITUDE,
-        longitude=LONGITUDE,
-        section="current",
-        to_df=False,
-        print_label="Visual Crossing Current Data:",
-    )
-
-
-def test_visualcrossing_daily_forecast():
-    run_vc_forecast_test(
-        latitude=LATITUDE,
-        longitude=LONGITUDE,
-        section="daily",
-        to_df=True,
-        print_label="Visual Crossing Daily Data as DataFrame:",
-    )
+        assert False, f"Error during interval validation: {e}"
