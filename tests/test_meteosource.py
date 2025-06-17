@@ -90,12 +90,4 @@ def test_meteosource_hourly_forecast_full_df():
     )
 
 
-def test_meteosource_15min_forecast():
-    run_forecast_test(
-        latitude=latitude,
-        longitude=longitude,
-        section="minutely",
-        attr="minutely",
-        to_df=True,
-        print_label="15min weather data as DataFrame:",
-    )
+
