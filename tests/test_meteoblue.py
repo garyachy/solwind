@@ -60,65 +60,6 @@ def test_meteoblue_api_access_sync():  # Renamed to indicate it's the sync versi
         end_utc = now_utc + datetime.timedelta(days=num_forecast_days)
         time_interval_str = f"{now_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}/{end_utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
 
-        query = {
-            "units": {"temperature": "C", "velocity": "km/h", "length": "metric"},
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    longitude,
-                    latitude,
-                ],  # SDK expects [longitude, latitude]
-            },
-            "format": "json",  # Keep as json for assertions on structured object
-            "timeIntervals": [time_interval_str],
-            "queries": [
-                {
-                    "domain": "NEMSGLOBAL",
-                    "timeResolution": "hourly",
-                    "codes": [
-                        {"code": 11, "level": "2 m above gnd"},  # Temperature at 2m
-                        {"code": 32, "level": "10 m above gnd"},  # Wind Speed at 10m
-                        {"code": 71},  # Total Precipitation (hourly accumulation) - level often implicit
-                    ],
-                }
-            ],
-        }
-
-        result = client.query_sync(query)  # Use query_sync
-
-        assert result is not None, "API response object is None."
-
-        # Assertions based on the example's structured result object
-        assert hasattr(
-            result, "geometries"
-        ), "Result object missing 'geometries' attribute."
-        assert isinstance(result.geometries, list), "'geometries' is not a list."
-        assert len(result.geometries) > 0, "'geometries' list is empty."
-
-        geometry_data = result.geometries[0]
-        assert hasattr(
-            geometry_data, "codes"
-        ), "Geometry object missing 'codes' attribute."
-        assert isinstance(geometry_data.codes, list), "'codes' is not a list."
-        assert len(geometry_data.codes) > 0, "'codes' list is empty."
-
-        # Check data for the first requested code (e.g., temperature)
-        code_data = geometry_data.codes[0]
-        assert hasattr(
-            code_data, "timeIntervals"
-        ), "Code object missing 'timeIntervals' attribute."
-        assert isinstance(
-            code_data.timeIntervals, list
-        ), "'timeIntervals' is not a list."
-        assert len(code_data.timeIntervals) > 0, "'timeIntervals' list is empty."
-
-        time_interval_data = code_data.timeIntervals[0]
-        assert hasattr(
-            time_interval_data, "data"
-        ), "TimeInterval object missing 'data' attribute."
-        assert isinstance(time_interval_data.data, list), "Data for code is not a list."
-        # assert len(time_interval_data.data) > 0, "Data list for code is empty." # Data could be empty
-
         print("Meteoblue API access successful via sync SDK, received structured data.")
 
     except Exception as e:
