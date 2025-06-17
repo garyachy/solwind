@@ -15,6 +15,9 @@
   "Meteoblue": {
     "api_key": "iFqCE9lJ4ANop1fc"
   },
+  "Windy": {
+    "api_key": "h5pLzjXc0LBGGkY7u1WZOLqc3ZN4EKqj"
+  },
   "Location": {
     "latitude": 50.4501,
     "longitude": 30.5234
