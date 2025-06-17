@@ -12,6 +12,9 @@
   "Openmeteo": {
     "api_key": ""
   },
+  "Meteoblue": {
+    "api_key": "iFqCE9lJ4ANop1fc"
+  },
   "Location": {
     "latitude": 50.4501,
     "longitude": 30.5234
