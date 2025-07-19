@@ -14,14 +14,21 @@ visual_crossing_api = VisualCrossingAPI(API_KEY)
 
 
 def test_visualcrossing_forecast():
-    now = datetime.utcnow()
+    now = datetime.utcnow().replace(second=0, microsecond=0)
+    # Align 'now' to the previous 15-minute boundary
+    minute = (now.minute // 15) * 15
+    aligned_now = now.replace(minute=minute)
     hours = 12
-    twelve_hours_later = now + timedelta(hours=hours)
-    start_dt_str = now.strftime("%Y-%m-%dT%H:%M:%S")
+    twelve_hours_later = aligned_now + timedelta(hours=hours)
+    start_dt_str = aligned_now.strftime("%Y-%m-%dT%H:%M:%S")
     end_dt_str = twelve_hours_later.strftime("%Y-%m-%dT%H:%M:%S")
 
-    # For 12 hours at 15-minute intervals: 12 * 4 = 48 intervals
-    expected_intervals = hours * 4
+    # Generate expected timestamps at 15-minute intervals between aligned_now and twelve_hours_later
+    expected_timestamps = pd.date_range(
+        start=aligned_now,
+        end=twelve_hours_later,
+        freq="15T",
+    )
 
     try:
         df_forecast = visual_crossing_api.get_forecast(
@@ -30,7 +37,6 @@ def test_visualcrossing_forecast():
             start_datetime=start_dt_str,
             end_datetime=end_dt_str,
         )
-        actual_intervals = len(df_forecast)
 
         print(f"Forecast DataFrame head:\n{df_forecast.head()}")
 
@@ -42,20 +48,28 @@ def test_visualcrossing_forecast():
                 df_forecast["timestamp"]
             ), "'timestamp' column should be of datetime type"
 
-        assert (
-            actual_intervals == expected_intervals
-        ), f"Expected {expected_intervals} forecast intervals, but got {actual_intervals}. API response (DataFrame head): {df_forecast.head()}"
-
-        # New: Check that all intervals are exactly 15 minutes
+        # Check that timestamps form a continuous 15-minute interval sequence
         if not df_forecast.empty:
-            timestamps = pd.Series(df_forecast["timestamp"]).sort_values()
-            timestamp_diffs = timestamps.diff().dropna()
-            expected_diff = pd.Timedelta(minutes=15)
-            all_15min = (timestamp_diffs == expected_diff).all()
-            assert all_15min, (
-                f"Not all timestamp intervals are 15 minutes.\n"
-                f"Intervals found: {timestamp_diffs.unique()}\n"
-                f"Timestamps: {timestamps.tolist()}"
+            timestamps = (
+                pd.Series(df_forecast["timestamp"]).sort_values().reset_index(drop=True)
+            )
+            expected_range = pd.date_range(
+                start=timestamps.iloc[0],
+                end=timestamps.iloc[-1],
+                freq="15T",
+            )
+            assert list(timestamps) == list(expected_range), (
+                f"Timestamps do not form a continuous 15-minute interval sequence.\n"
+                f"Expected: {list(expected_range)}\n"
+                f"Got: {list(timestamps)}"
+            )
+
+            # Check that all expected 15-min dots between aligned_now and twelve_hours_later are present
+            timestamps_set = set(timestamps)
+            missing = [ts for ts in expected_timestamps if ts not in timestamps_set]
+            assert not missing, (
+                f"Missing expected 15-min timestamps between aligned_now and twelve_hours_later: {missing}\n"
+                f"Returned timestamps: {list(timestamps)}"
             )
 
     except Exception as e:
