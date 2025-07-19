@@ -29,7 +29,7 @@ class VisualCrossingAPI:
         end_datetime=None,
     ):
         """
-        Retrieves weather forecast data from Visual Crossing API and returns it as a pandas DataFrame.
+        Retrieves weather forecast data from Visual Crossing API at 15-minute precision and returns it as a pandas DataFrame.
 
         Args:
             latitude (float): Latitude of the location.
@@ -38,14 +38,13 @@ class VisualCrossingAPI:
             end_datetime (str, optional): End datetime for the forecast. Defaults to None.
 
         Returns:
-            pandas.DataFrame: DataFrame containing the hourly forecast data,
+            pandas.DataFrame: DataFrame containing the 15-minute forecast data,
                               with the first column as 'timestamp' and other columns
                               representing weather parameters.
 
         Raises:
             ValueError: If latitude or longitude is None.
             requests.exceptions.HTTPError: If the HTTP request returns an error status code.
-            KeyError: If the 'days' or 'hours' section is not found in the API response.
         """
         if latitude is None or longitude is None:
             raise ValueError("Latitude or longitude cannot be None.")
@@ -61,30 +60,23 @@ class VisualCrossingAPI:
             "lang": "en",
             "contentType": "json",
             "include": "hours",
+            "aggregateMinutes": 15,
         }
 
         response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()
 
-        all_hours_data = []
+        all_minutes_data = []
         if "days" in data:
             for day_data in data["days"]:
                 if "hours" in day_data:
-                    all_hours_data.extend(day_data["hours"])
+                    all_minutes_data.extend(day_data["hours"])
 
-        if not all_hours_data:
-            if "hours" in data:
-                all_hours_data = data["hours"]
-            elif "days" in data and data["days"] and "hours" in data["days"][0]:
-                all_hours_data = data["days"][0]["hours"]
-            else:
-                pass
-
-        if not all_hours_data:
+        if not all_minutes_data:
             return pd.DataFrame()
 
-        df = pd.DataFrame(all_hours_data)
+        df = pd.DataFrame(all_minutes_data)
 
         if "datetimeEpoch" in df.columns:
             df["timestamp"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
@@ -103,7 +95,7 @@ class VisualCrossingAPI:
         end_date,
     ):
         """
-        Retrieves historical weather data from Visual Crossing API and returns it as a pandas DataFrame.
+        Retrieves historical weather data from Visual Crossing API at 15-minute precision and returns it as a pandas DataFrame.
 
         Args:
             latitude (float): Latitude of the location.
@@ -112,14 +104,13 @@ class VisualCrossingAPI:
             end_date (str): End date for the historical data (YYYY-MM-DD).
 
         Returns:
-            pandas.DataFrame: DataFrame containing the hourly historical data,
+            pandas.DataFrame: DataFrame containing the 15-minute historical data,
                               with the first column as 'timestamp' and other columns
                               representing weather parameters.
 
         Raises:
             ValueError: If latitude, longitude, start_date, or end_date is None.
             requests.exceptions.HTTPError: If the HTTP request returns an error status code.
-            KeyError: If the 'days' or 'hours' section is not found in the API response.
         """
         if latitude is None or longitude is None:
             raise ValueError("Latitude or longitude cannot be None.")
@@ -135,37 +126,27 @@ class VisualCrossingAPI:
             "unitGroup": "metric",
             "lang": "en",
             "contentType": "json",
-            "include": "hours",  # Ensure hourly data is included
+            "include": "hours",
+            "aggregateMinutes": 15,
         }
 
         response = requests.get(url, params=params)
-        response.raise_for_status()  # Raise an exception for HTTP errors
+        response.raise_for_status()
         data = response.json()
 
-        all_hours_data = []
+        all_minutes_data = []
         if "days" in data:
             for day_data in data["days"]:
                 if "hours" in day_data:
-                    all_hours_data.extend(day_data["hours"])
+                    all_minutes_data.extend(day_data["hours"])
 
-        if (
-            not all_hours_data
-        ):  # Fallback for single day requests that might not have 'days'
-            if "hours" in data:
-                all_hours_data = data["hours"]
-            elif "days" in data and data["days"] and "hours" in data["days"][0]:
-                all_hours_data = data["days"][0]["hours"]
-            else:  # No hourly data found
-                pass
+        if not all_minutes_data:
+            return pd.DataFrame()
 
-        if not all_hours_data:
-            return pd.DataFrame()  # Return empty DataFrame if no hourly data
-
-        df = pd.DataFrame(all_hours_data)
+        df = pd.DataFrame(all_minutes_data)
 
         if "datetimeEpoch" in df.columns:
             df["timestamp"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
-            # Reorder columns to have 'timestamp' first
             cols = ["timestamp"] + [
                 col for col in df.columns if col not in ["timestamp", "datetimeEpoch"]
             ]
