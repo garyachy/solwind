@@ -19,7 +19,7 @@ def test_visualcrossing_forecast_multi_location():
     # Align 'now' to the previous 15-minute boundary
     minute = (now.minute // 15) * 15
     aligned_now = now.replace(minute=minute)
-    hours = 8
+    hours = 24
     end = aligned_now + timedelta(hours=hours)
     start_dt_str = aligned_now.strftime("%Y-%m-%dT%H:%M:%S")
     end_dt_str = end.strftime("%Y-%m-%dT%H:%M:%S")
@@ -55,7 +55,7 @@ def test_visualcrossing_forecast_single_location():
     # Align 'now' to the previous 15-minute boundary
     minute = (now.minute // 15) * 15
     aligned_now = now.replace(minute=minute)
-    hours = 8
+    hours = 24
     end = aligned_now + timedelta(hours=hours)
     start_dt_str = aligned_now.strftime("%Y-%m-%dT%H:%M:%S")
     end_dt_str = end.strftime("%Y-%m-%dT%H:%M:%S")
