@@ -1,5 +1,6 @@
 # Create requirements.txt
 pytest
+matplotlib
 openmeteo-requests
 pandas
 requests_cache
