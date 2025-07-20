@@ -35,65 +35,86 @@ class VisualCrossingAPI:
         include="hours,minutes",
     ):
         """
-        Fetches raw forecast data from the Visual Crossing API /timelinemulti endpoint.
+        Fetches raw forecast data from the Visual Crossing API.
+        Uses /timeline for a single location, /timelinemulti for multiple locations.
         """
-        locations_str = "|".join([f"{lat},{lon}" for lat, lon in locations])
+        if not isinstance(locations, list) or not locations:
+            raise ValueError("locations must be a non-empty list of (latitude, longitude) tuples.")
         params = {
             "key": self.api_key,
-            "locations": locations_str,
             "unitGroup": unit_group,
             "contentType": "json",
             "include": include,
         }
-        if start_datetime:
-            params["datestart"] = start_datetime
-        if end_datetime:
-            params["dateend"] = end_datetime
-        response = requests.get(self.timelinemulti_url, params=params)
+        if len(locations) == 1:
+            lat, lon = locations[0]
+            if lat is None or lon is None:
+                raise ValueError("Latitude or longitude cannot be None for single-location forecast.")
+            params["lang"] = "en"
+            url = f"{self.base_url}/{lat},{lon}"
+            if start_datetime and end_datetime:
+                url = f"{self.base_url}/{lat},{lon}/{start_datetime}/{end_datetime}"
+        else:
+            url = self.timelinemulti_url
+            params["locations"] = "|".join([f"{lat},{lon}" for lat, lon in locations])
+            if start_datetime:
+                params["datestart"] = start_datetime
+            if end_datetime:
+                params["dateend"] = end_datetime
+        response = requests.get(url, params=params)
         response.raise_for_status()
         return response.json()
 
     def _parse_forecast_data(self, data):
         """
-        Parses the multi-location forecast data into a list of DataFrames.
+        Parses forecast data from either /timelinemulti (multi-location) or /timeline (single-location) endpoint.
+        Returns a list of DataFrames for multi-location, or a single DataFrame for single-location.
         """
-        def extract_records(loc_result):
-            lat = loc_result.get("latitude")
-            lon = loc_result.get("longitude")
-            records = []
-            for day in loc_result.get("days", []):
-                day_base = {k: v for k, v in day.items() if k != "hours"}
-                hours = day.get("hours", [])
-                if hours:
-                    for hour in hours:
-                        hour_base = {k: v for k, v in hour.items() if k != "minutes"}
-                        minutes = hour.get("minutes", [])
-                        if minutes:
-                            for minute in minutes:
-                                merged = {**day_base, **hour_base, **minute}
-                                if any(
-                                    v is not None and k not in ("datetime", "datetimeEpoch")
-                                    for k, v in merged.items()
-                                ):
-                                    records.append(merged)
-                        else:
-                            merged = {**day_base, **hour_base}
-                            records.append(merged)
-                else:
-                    records.append(day_base)
-            if not records:
-                return pd.DataFrame()
-            df = pd.DataFrame(records)
-            if "datetimeEpoch" in df.columns:
-                df["timestamp"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
-                cols = ["timestamp"] + [col for col in df.columns if col not in ["timestamp", "datetimeEpoch"]]
-                df = df[cols]
+        # Multi-location format: {"locations": [ ... ]}
+        if "locations" in data:
+            locations_data = data.get("locations", [])
+            return [self._extract_records(loc_result) for loc_result in locations_data]
+        # Single-location format: {"days": [ ... ]}
+        elif "days" in data:
+            return self._extract_records(data)
+        else:
+            return pd.DataFrame()
+
+    def _extract_records(self, loc_result):
+        lat = loc_result.get("latitude")
+        lon = loc_result.get("longitude")
+        records = []
+        for day in loc_result.get("days", []):
+            day_base = {k: v for k, v in day.items() if k != "hours"}
+            hours = day.get("hours", [])
+            if hours:
+                for hour in hours:
+                    hour_base = {k: v for k, v in hour.items() if k != "minutes"}
+                    minutes = hour.get("minutes", [])
+                    if minutes:
+                        for minute in minutes:
+                            merged = {**day_base, **hour_base, **minute}
+                            if any(
+                                v is not None and k not in ("datetime", "datetimeEpoch")
+                                for k, v in merged.items()
+                            ):
+                                records.append(merged)
+                    else:
+                        merged = {**day_base, **hour_base}
+                        records.append(merged)
+            else:
+                records.append(day_base)
+        if not records:
+            return pd.DataFrame()
+        df = pd.DataFrame(records)
+        if "datetimeEpoch" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
+            cols = ["timestamp"] + [col for col in df.columns if col not in ["timestamp", "datetimeEpoch"]]
+            df = df[cols]
+        if lat is not None and lon is not None:
             df["latitude"] = lat
             df["longitude"] = lon
-            return df
-
-        locations_data = data.get("locations", [])
-        return [extract_records(loc_result) for loc_result in locations_data]
+        return df
 
     def get_forecast(
         self,
@@ -101,17 +122,18 @@ class VisualCrossingAPI:
         start_datetime=None,
         end_datetime=None,
         unit_group="metric",
-        include="hours,minutes",
     ):
         """
-        Retrieves weather forecast data from Visual Crossing API for multiple locations using the /timelinemulti endpoint.
+        Retrieves weather forecast data from Visual Crossing API.
+        - If locations contains one (lat, lon) tuple, uses /timeline and returns a single DataFrame.
+        - If locations contains multiple tuples, uses /timelinemulti and returns a list of DataFrames.
         """
         data = self._fetch_forecast_data(
             locations,
             start_datetime=start_datetime,
             end_datetime=end_datetime,
             unit_group=unit_group,
-            include=include,
+            include="hours,minutes",
         )
         return self._parse_forecast_data(data)
 

@@ -14,7 +14,7 @@ LONGITUDE = location_config.get("longitude")
 visual_crossing_api = VisualCrossingAPI(API_KEY)
 
 
-def test_visualcrossing_forecast():
+def test_visualcrossing_forecast_multi_location():
     now = datetime.utcnow().replace(second=0, microsecond=0)
     # Align 'now' to the previous 15-minute boundary
     minute = (now.minute // 15) * 15
@@ -31,20 +31,17 @@ def test_visualcrossing_forecast():
         freq="15min",
     )
 
-    # Prepare locations as a list of tuples
-    locations = [(LATITUDE, LONGITUDE), (LATITUDE, LONGITUDE)]
-
+    # Multi-location usage (for test, just duplicate the same location)
+    multi_locations = [(LATITUDE, LONGITUDE), (LATITUDE, LONGITUDE)]
     try:
         dfs_forecast = visual_crossing_api.get_forecast(
-            locations=locations,
+            locations=multi_locations,
             start_datetime=start_dt_str,
             end_datetime=end_dt_str,
         )
-
-        assert isinstance(dfs_forecast, list), "get_forecast should return a list of DataFrames"
-        assert len(dfs_forecast) == len(locations), "Should return one DataFrame per location"
-
-        for idx, ((lat, lon), df_forecast) in enumerate(zip(locations, dfs_forecast)):
+        assert isinstance(dfs_forecast, list), "get_forecast should return a list of DataFrames for multi-location input"
+        assert len(dfs_forecast) == len(multi_locations), "Should return one DataFrame per location"
+        for idx, ((lat, lon), df_forecast) in enumerate(zip(multi_locations, dfs_forecast)):
             print(f"Forecast DataFrame for location {idx} ({lat}, {lon}) head:\n{df_forecast.head()}")
             assert (
                 "timestamp" in df_forecast.columns
@@ -53,8 +50,6 @@ def test_visualcrossing_forecast():
                 assert pd.api.types.is_datetime64_any_dtype(
                     df_forecast["timestamp"]
                 ), f"'timestamp' column should be of datetime type for location {idx}"
-
-                # Check that timestamps form a continuous 15-minute interval sequence
                 timestamps = (
                     pd.Series(df_forecast["timestamp"]).sort_values().reset_index(drop=True)
                 )
@@ -68,8 +63,6 @@ def test_visualcrossing_forecast():
                     f"Expected: {list(expected_range)}\n"
                     f"Got: {list(timestamps)}"
                 )
-
-                # Check that all expected 15-min dots between aligned_now and twelve_hours_later are present
                 timestamps_set = set(timestamps)
                 missing = [ts for ts in expected_timestamps if ts not in timestamps_set]
                 assert not missing, (
@@ -78,7 +71,58 @@ def test_visualcrossing_forecast():
                 )
             else:
                 print(f"Warning: DataFrame for location {idx} is empty.")
+    except Exception as e:
+        print(e)
+        assert False, f"Error during interval validation: {e}"
 
+
+def test_visualcrossing_forecast_single_location():
+    now = datetime.utcnow().replace(second=0, microsecond=0)
+    # Align 'now' to the previous 15-minute boundary
+    minute = (now.minute // 15) * 15
+    aligned_now = now.replace(minute=minute)
+    hours = 24
+    end = aligned_now + timedelta(hours=hours)
+    start_dt_str = aligned_now.strftime("%Y-%m-%dT%H:%M:%S")
+    end_dt_str = end.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Generate expected timestamps at 15-minute intervals between aligned_now and twelve_hours_later
+    expected_timestamps = pd.date_range(
+        start=aligned_now,
+        end=end,
+        freq="15min",
+    )
+
+    # Single-location usage
+    try:
+        df_single = visual_crossing_api.get_forecast(
+            locations=[(LATITUDE, LONGITUDE)],
+            start_datetime=start_dt_str,
+            end_datetime=end_dt_str,
+        )
+        assert isinstance(df_single, pd.DataFrame), "get_forecast should return a DataFrame for single-location input"
+        assert "timestamp" in df_single.columns, "Single-location DataFrame should have a 'timestamp' column"
+        if not df_single.empty:
+            assert pd.api.types.is_datetime64_any_dtype(df_single["timestamp"]), "'timestamp' column should be of datetime type for single-location"
+            timestamps = pd.Series(df_single["timestamp"]).sort_values().reset_index(drop=True)
+            expected_range = pd.date_range(
+                start=timestamps.iloc[0],
+                end=timestamps.iloc[-1],
+                freq="15min",
+            )
+            assert list(timestamps) == list(expected_range), (
+                f"Timestamps do not form a continuous 15-minute interval sequence for single-location.\n"
+                f"Expected: {list(expected_range)}\n"
+                f"Got: {list(timestamps)}"
+            )
+            timestamps_set = set(timestamps)
+            missing = [ts for ts in expected_timestamps if ts not in timestamps_set]
+            assert not missing, (
+                f"Missing expected 15-min timestamps between aligned_now and twelve_hours_later for single-location: {missing}\n"
+                f"Returned timestamps: {list(timestamps)}"
+            )
+        else:
+            print("Warning: Single-location DataFrame is empty.")
     except Exception as e:
         print(e)
         assert False, f"Error during interval validation: {e}"
