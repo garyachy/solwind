@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+import urllib.parse
 
 
 class VisualCrossingAPI:
@@ -7,83 +8,112 @@ class VisualCrossingAPI:
         self,
         api_key,
         base_url="https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline",
+        timelinemulti_url="https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timelinemulti",
     ):
         """
-        Initializes the VisualCrossingAPI with an API key and base URL.
+        Initializes the VisualCrossingAPI with an API key and base URLs.
 
         Args:
             api_key (str): The API key for accessing the Visual Crossing API.
             base_url (str, optional): The base URL for the Visual Crossing API.
                 Defaults to "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline".
+            timelinemulti_url (str, optional): The base URL for the timelinemulti endpoint.
+                Defaults to "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timelinemulti".
         """
         if not api_key:
             raise ValueError("API_KEY cannot be empty.")
         self.api_key = api_key
         self.base_url = base_url
+        self.timelinemulti_url = timelinemulti_url
 
-    def get_forecast(
+    def _fetch_forecast_data(
         self,
-        latitude,
-        longitude,
+        locations,
         start_datetime=None,
         end_datetime=None,
         unit_group="metric",
+        include="hours,minutes",
     ):
         """
-        Retrieves weather forecast data from Visual Crossing API at minute-level precision if available, otherwise hourly or daily, and returns it as a pandas DataFrame. Each row contains merged day, hour, and minute context.
+        Fetches raw forecast data from the Visual Crossing API /timelinemulti endpoint.
         """
-        if latitude is None or longitude is None:
-            raise ValueError("Latitude or longitude cannot be None.")
-
-        if start_datetime and end_datetime:
-            url = f"{self.base_url}/{latitude},{longitude}/{start_datetime}/{end_datetime}"
-        else:
-            url = f"{self.base_url}/{latitude},{longitude}"
-
+        locations_str = "|".join([f"{lat},{lon}" for lat, lon in locations])
         params = {
             "key": self.api_key,
+            "locations": locations_str,
             "unitGroup": unit_group,
-            "lang": "en",
             "contentType": "json",
-            "include": "hours,minutes",
+            "include": include,
         }
-
-        response = requests.get(url, params=params)
+        if start_datetime:
+            params["datestart"] = start_datetime
+        if end_datetime:
+            params["dateend"] = end_datetime
+        response = requests.get(self.timelinemulti_url, params=params)
         response.raise_for_status()
-        data = response.json()
+        return response.json()
 
-        records = []
-        if "days" in data:
-            for day in data["days"]:
-                day_base = {k: v for k, v in day.items() if k not in ["hours"]}
-                if "hours" in day and day["hours"]:
-                    for hour in day["hours"]:
-                        hour_base = {k: v for k, v in hour.items() if k not in ["minutes"]}
-                        if "minutes" in hour and hour["minutes"]:
-                            for minute in hour["minutes"]:
-                                # Merge: day < hour < minute (minute overrides hour, hour overrides day)
+    def _parse_forecast_data(self, data):
+        """
+        Parses the multi-location forecast data into a list of DataFrames.
+        """
+        def extract_records(loc_result):
+            lat = loc_result.get("latitude")
+            lon = loc_result.get("longitude")
+            records = []
+            for day in loc_result.get("days", []):
+                day_base = {k: v for k, v in day.items() if k != "hours"}
+                hours = day.get("hours", [])
+                if hours:
+                    for hour in hours:
+                        hour_base = {k: v for k, v in hour.items() if k != "minutes"}
+                        minutes = hour.get("minutes", [])
+                        if minutes:
+                            for minute in minutes:
                                 merged = {**day_base, **hour_base, **minute}
-                                records.append(merged)
+                                if any(
+                                    v is not None and k not in ("datetime", "datetimeEpoch")
+                                    for k, v in merged.items()
+                                ):
+                                    records.append(merged)
                         else:
-                            # No minutes, merge day and hour
                             merged = {**day_base, **hour_base}
                             records.append(merged)
                 else:
-                    # No hours, just use day
                     records.append(day_base)
+            if not records:
+                return pd.DataFrame()
+            df = pd.DataFrame(records)
+            if "datetimeEpoch" in df.columns:
+                df["timestamp"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
+                cols = ["timestamp"] + [col for col in df.columns if col not in ["timestamp", "datetimeEpoch"]]
+                df = df[cols]
+            df["latitude"] = lat
+            df["longitude"] = lon
+            return df
 
-        if not records:
-            return pd.DataFrame()
+        locations_data = data.get("locations", [])
+        return [extract_records(loc_result) for loc_result in locations_data]
 
-        df = pd.DataFrame(records)
-
-        # Use the most granular datetimeEpoch for timestamp
-        if "datetimeEpoch" in df.columns:
-            df["timestamp"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
-            cols = ["timestamp"] + [col for col in df.columns if col not in ["timestamp", "datetimeEpoch"]]
-            df = df[cols]
-
-        return df
+    def get_forecast(
+        self,
+        locations,
+        start_datetime=None,
+        end_datetime=None,
+        unit_group="metric",
+        include="hours,minutes",
+    ):
+        """
+        Retrieves weather forecast data from Visual Crossing API for multiple locations using the /timelinemulti endpoint.
+        """
+        data = self._fetch_forecast_data(
+            locations,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+            unit_group=unit_group,
+            include=include,
+        )
+        return self._parse_forecast_data(data)
 
     def get_historical_data(
         self,
