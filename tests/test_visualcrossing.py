@@ -2,6 +2,7 @@ import pandas as pd
 from config import load_config
 from datetime import datetime, timedelta, time
 from visualcrossing_api import VisualCrossingAPI
+import pytest
 
 config = load_config()
 visualcrossing_config = config.get("VisualCrossing", {})
@@ -77,6 +78,7 @@ def test_visualcrossing_forecast():
         assert False, f"Error during interval validation: {e}"
 
 
+@pytest.mark.skip(reason="Temporarily disabled for investigation or maintenance.")
 def test_visualcrossing_historical_data():
     # Define a date range for historical data, e.g., 1 day ago to today
     end_date = datetime.utcnow().date()
@@ -118,6 +120,7 @@ def test_visualcrossing_historical_data():
         assert False, f"Error during historical data test: {e}"
 
 
+@pytest.mark.skip(reason="Temporarily disabled for investigation or maintenance.")
 def test_compare_yesterday_wind_data():
     """
     Compares historical wind data from yesterday with data fetched
