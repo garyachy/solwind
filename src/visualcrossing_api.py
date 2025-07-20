@@ -116,6 +116,30 @@ class VisualCrossingAPI:
             df["longitude"] = lon
         return df
 
+    def _validate_and_fill_timestamps(self, df, start_datetime, end_datetime, freq="15min"):
+        """
+        Validates that the DataFrame's 'timestamp' column contains all expected intervals.
+        Raises ValueError if any expected timestamp is missing.
+        """
+        if df.empty or "timestamp" not in df.columns:
+            return df  # Nothing to validate
+        # Parse start/end as pd.Timestamp if needed
+        if isinstance(start_datetime, str):
+            start = pd.to_datetime(start_datetime)
+        else:
+            start = start_datetime
+        if isinstance(end_datetime, str):
+            end = pd.to_datetime(end_datetime)
+        else:
+            end = end_datetime
+        expected_timestamps = pd.date_range(start=start, end=end, freq=freq)
+        timestamps = pd.Series(df["timestamp"]).sort_values().reset_index(drop=True)
+        timestamps_set = set(timestamps)
+        missing = [ts for ts in expected_timestamps if ts not in timestamps_set]
+        if missing:
+            raise ValueError(f"Missing expected {freq} timestamps between {start} and {end}: {missing}\nReturned timestamps: {list(timestamps)}")
+        return df
+
     def get_forecast(
         self,
         locations,
@@ -127,6 +151,7 @@ class VisualCrossingAPI:
         Retrieves weather forecast data from Visual Crossing API.
         - If locations contains one (lat, lon) tuple, uses /timeline and returns a single DataFrame.
         - If locations contains multiple tuples, uses /timelinemulti and returns a list of DataFrames.
+        Now also validates that all expected 15-min timestamps are present.
         """
         data = self._fetch_forecast_data(
             locations,
@@ -135,7 +160,14 @@ class VisualCrossingAPI:
             unit_group=unit_group,
             include="hours,minutes",
         )
-        return self._parse_forecast_data(data)
+        parsed = self._parse_forecast_data(data)
+        # Only validate if both start and end datetimes are provided
+        if start_datetime and end_datetime:
+            if isinstance(parsed, list):
+                return [self._validate_and_fill_timestamps(df, start_datetime, end_datetime) for df in parsed]
+            else:
+                return self._validate_and_fill_timestamps(parsed, start_datetime, end_datetime)
+        return parsed
 
     def get_historical_data(
         self,

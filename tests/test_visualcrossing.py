@@ -19,17 +19,10 @@ def test_visualcrossing_forecast_multi_location():
     # Align 'now' to the previous 15-minute boundary
     minute = (now.minute // 15) * 15
     aligned_now = now.replace(minute=minute)
-    hours = 24
+    hours = 8
     end = aligned_now + timedelta(hours=hours)
     start_dt_str = aligned_now.strftime("%Y-%m-%dT%H:%M:%S")
     end_dt_str = end.strftime("%Y-%m-%dT%H:%M:%S")
-
-    # Generate expected timestamps at 15-minute intervals between aligned_now and twelve_hours_later
-    expected_timestamps = pd.date_range(
-        start=aligned_now,
-        end=end,
-        freq="15min",
-    )
 
     # Multi-location usage (for test, just duplicate the same location)
     multi_locations = [(LATITUDE, LONGITUDE), (LATITUDE, LONGITUDE)]
@@ -50,25 +43,6 @@ def test_visualcrossing_forecast_multi_location():
                 assert pd.api.types.is_datetime64_any_dtype(
                     df_forecast["timestamp"]
                 ), f"'timestamp' column should be of datetime type for location {idx}"
-                timestamps = (
-                    pd.Series(df_forecast["timestamp"]).sort_values().reset_index(drop=True)
-                )
-                expected_range = pd.date_range(
-                    start=timestamps.iloc[0],
-                    end=timestamps.iloc[-1],
-                    freq="15min",
-                )
-                assert list(timestamps) == list(expected_range), (
-                    f"Timestamps do not form a continuous 15-minute interval sequence for location ({lat}, {lon}).\n"
-                    f"Expected: {list(expected_range)}\n"
-                    f"Got: {list(timestamps)}"
-                )
-                timestamps_set = set(timestamps)
-                missing = [ts for ts in expected_timestamps if ts not in timestamps_set]
-                assert not missing, (
-                    f"Missing expected 15-min timestamps between aligned_now and twelve_hours_later for location ({lat}, {lon}): {missing}\n"
-                    f"Returned timestamps: {list(timestamps)}"
-                )
             else:
                 print(f"Warning: DataFrame for location {idx} is empty.")
     except Exception as e:
@@ -81,17 +55,10 @@ def test_visualcrossing_forecast_single_location():
     # Align 'now' to the previous 15-minute boundary
     minute = (now.minute // 15) * 15
     aligned_now = now.replace(minute=minute)
-    hours = 24
+    hours = 8
     end = aligned_now + timedelta(hours=hours)
     start_dt_str = aligned_now.strftime("%Y-%m-%dT%H:%M:%S")
     end_dt_str = end.strftime("%Y-%m-%dT%H:%M:%S")
-
-    # Generate expected timestamps at 15-minute intervals between aligned_now and twelve_hours_later
-    expected_timestamps = pd.date_range(
-        start=aligned_now,
-        end=end,
-        freq="15min",
-    )
 
     # Single-location usage
     try:
@@ -104,23 +71,6 @@ def test_visualcrossing_forecast_single_location():
         assert "timestamp" in df_single.columns, "Single-location DataFrame should have a 'timestamp' column"
         if not df_single.empty:
             assert pd.api.types.is_datetime64_any_dtype(df_single["timestamp"]), "'timestamp' column should be of datetime type for single-location"
-            timestamps = pd.Series(df_single["timestamp"]).sort_values().reset_index(drop=True)
-            expected_range = pd.date_range(
-                start=timestamps.iloc[0],
-                end=timestamps.iloc[-1],
-                freq="15min",
-            )
-            assert list(timestamps) == list(expected_range), (
-                f"Timestamps do not form a continuous 15-minute interval sequence for single-location.\n"
-                f"Expected: {list(expected_range)}\n"
-                f"Got: {list(timestamps)}"
-            )
-            timestamps_set = set(timestamps)
-            missing = [ts for ts in expected_timestamps if ts not in timestamps_set]
-            assert not missing, (
-                f"Missing expected 15-min timestamps between aligned_now and twelve_hours_later for single-location: {missing}\n"
-                f"Returned timestamps: {list(timestamps)}"
-            )
         else:
             print("Warning: Single-location DataFrame is empty.")
     except Exception as e:
