@@ -29,8 +29,15 @@ minute = (now.minute // 15) * 15
 aligned_now = now.replace(minute=minute)
 default_end = aligned_now + timedelta(hours=24)
 
-start_dt = st.datetime_input("Start datetime (UTC)", value=aligned_now)
-end_dt = st.datetime_input("End datetime (UTC)", value=default_end)
+# Date and time input for start
+start_date = st.date_input("Start date (UTC)", value=aligned_now.date())
+start_time = st.time_input("Start time (UTC)", value=aligned_now.time())
+start_dt = datetime.combine(start_date, start_time)
+
+# Date and time input for end
+end_date = st.date_input("End date (UTC)", value=default_end.date(), key="end_date")
+end_time = st.time_input("End time (UTC)", value=default_end.time(), key="end_time")
+end_dt = datetime.combine(end_date, end_time)
 
 # Button to fetch and plot
 do_plot = st.button("Plot Forecast")
