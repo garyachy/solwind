@@ -1,4 +1,4 @@
-from config import load_config
+from config import get_config
 import pytest
 import pandas as pd
 from datetime import datetime, timedelta, timezone
@@ -12,7 +12,7 @@ from openmeteo import (
 
 @pytest.fixture(scope="module")
 def openmeteo_test_data():
-    config = load_config()
+    config = get_config()
     openmeteo_config = config.get("Openmeteo", {})
     location_config = config.get("Location", {})
 

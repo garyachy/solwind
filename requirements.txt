@@ -9,3 +9,4 @@ meteoblue_dataset_sdk
 git+https://github.com/Meteomatics/python-connector-api.git
 git+https://github.com/Meteosource/pymeteosource
 streamlit
+python-dotenv

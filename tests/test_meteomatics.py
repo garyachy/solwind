@@ -1,12 +1,12 @@
 from datetime import datetime, timezone
 import datetime as dt
 import meteomatics.api as api
-from config import load_config
+from config import get_config
 
 
 def test_meteomatics_access():
     # Load configuration
-    config = load_config()
+    config = get_config()
     meteomatics_config = config.get("Meteomatics", {})
     location_config = config.get("Location", {})
 
@@ -16,14 +16,14 @@ def test_meteomatics_access():
 
     if not username or not password:
         raise ValueError(
-            "Username or password not found in config.json for Meteomatics"
+            "Username or password not found in config for Meteomatics"
         )
 
     latitude = location_config.get("latitude")
     longitude = location_config.get("longitude")
 
     if latitude is None or longitude is None:
-        raise ValueError("Latitude or longitude not found in config.json")
+        raise ValueError("Latitude or longitude not found in config")
 
     # Prepare request parameters
     coordinates = [(latitude, longitude)]

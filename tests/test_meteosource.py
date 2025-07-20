@@ -1,8 +1,8 @@
 from pymeteosource.api import Meteosource
-from config import load_config
+from config import get_config
 
 # Load configuration
-config = load_config()
+config = get_config()
 meteosource_config = config.get("Meteosource", {})
 location_config = config.get("Location", {})
 API_KEY = meteosource_config.get("api_key")

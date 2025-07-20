@@ -1,25 +1,25 @@
 {
   "Meteomatics": {
-    "username": "nordik_haryachyy_denys",
-    "password": "XX96dpGSs8"
+    "username": "${METEOMATICS_USERNAME}",
+    "password": "${METEOMATICS_PASSWORD}"
   },
   "Meteosource": {
-    "api_key": "cv75uxpupa3el1t0c82lc4vjhy4fw50ffzvgup32"
+    "api_key": "${METEOSOURCE_API_KEY}"
   },
   "VisualCrossing": {
-    "api_key": "QJUV7PUS36Y9AQD3FEMBBH5BX"
+    "api_key": "${VISUALCROSSING_API_KEY}"
   },
   "Openmeteo": {
-    "api_key": ""
+    "api_key": "${OPENMETEO_API_KEY}"
   },
   "Meteoblue": {
-    "api_key": "iFqCE9lJ4ANop1fc"
+    "api_key": "${METEOBLUE_API_KEY}"
   },
   "Windy": {
-    "api_key": "h5pLzjXc0LBGGkY7u1WZOLqc3ZN4EKqj"
+    "api_key": "${WINDY_API_KEY}"
   },
   "Location": {
-    "latitude": 50.4501,
-    "longitude": 30.5234
+    "latitude": "${LOCATION_LATITUDE}",
+    "longitude": "${LOCATION_LONGITUDE}"
   }
 }

@@ -1,8 +1,6 @@
 import requests
 import json
-from config import (
-    load_config,
-)
+from config import get_config
 import pytest
 import pandas as pd  # Add this import
 from datetime import datetime  # Add this import
@@ -14,28 +12,24 @@ def test_windy_api_point_forecast():
     and checks for a successful response and expected data structure.
     """
     try:
-        config = load_config()
-    except FileNotFoundError:
-        pytest.fail(
-            "Configuration file (config.json) not found. Ensure it is in the project root."
-        )
-    except json.JSONDecodeError:
-        pytest.fail("Error decoding JSON from config file (config.json).")
+        config = get_config()
+    except Exception as e:
+        pytest.fail(f"Error loading config: {e}")
 
     windy_config = config.get("Windy")
     location_config = config.get("Location")
 
     if not windy_config:
-        pytest.fail("Windy configuration missing in config.json")
+        pytest.fail("Windy configuration missing in config")
     if not location_config:
-        pytest.fail("Location configuration missing in config.json")
+        pytest.fail("Location configuration missing in config")
 
     api_key = windy_config.get("api_key")
     latitude = location_config.get("latitude")
     longitude = location_config.get("longitude")
 
     if not api_key:
-        pytest.fail("Windy API key missing in config.json")
+        pytest.fail("Windy API key missing in config")
     if latitude is None:
         pytest.fail("Latitude missing in location configuration")
     if longitude is None:

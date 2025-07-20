@@ -1,14 +1,14 @@
 import pandas as pd
-from config import load_config
+from config import get_config
 from datetime import datetime, timedelta, time
 from visualcrossing_api import VisualCrossingAPI
 from visualcrossing_api import VisualCrossingDraw
 import matplotlib
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import pytest
 import os
 
-config = load_config()
+config = get_config()
 visualcrossing_config = config.get("VisualCrossing", {})
 location_config = config.get("Location", {})
 API_KEY = visualcrossing_config.get("api_key")

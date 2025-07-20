@@ -1,6 +1,6 @@
 import requests  # For requests.exceptions
 import json
-from config import load_config
+from config import get_config
 from meteoblue_dataset_sdk import Client  # Assuming this is the correct import
 import pytest
 import datetime  # Required for timeIntervals
@@ -12,21 +12,17 @@ def test_meteoblue_api_access_sync():  # Renamed to indicate it's the sync versi
     and checks for a successful response.
     """
     try:
-        config = load_config()
-    except FileNotFoundError:
-        pytest.fail(
-            "Configuration file (config.json) not found. Ensure it is in the project root."
-        )
-    except json.JSONDecodeError:
-        pytest.fail("Error decoding JSON from config file (config.json).")
+        config = get_config()
+    except Exception as e:
+        pytest.fail(f"Error loading config: {e}")
 
     meteoblue_config = config.get("Meteoblue")
     location_config = config.get("Location")
 
     if not meteoblue_config:
-        pytest.fail("Meteoblue configuration missing in config.json")
+        pytest.fail("Meteoblue configuration missing in config")
     if not location_config:
-        pytest.fail("Location configuration missing in config.json")
+        pytest.fail("Location configuration missing in config")
 
     api_key = meteoblue_config.get("api_key")
     latitude = location_config.get("latitude")
