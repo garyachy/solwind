@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 import json
 import os
 from visualcrossing_api import VisualCrossingAPI, VisualCrossingDraw
-from config import load_config
+from config import get_config
 
 # Load config
-config = load_config()
+config = get_config()
 visualcrossing_config = config.get("VisualCrossing", {})
 location_config = config.get("Location", {})
 API_KEY = visualcrossing_config.get("api_key")
