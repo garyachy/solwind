@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import json
 import os
-from visualcrossing_api import VisualCrossingAPI, VisualCrossingDraw
+from visualcrossing_api import VisualCrossingAPI
+from visualcrossing_draw import VisualCrossingDraw
 from config import get_config
 
 # Load config
@@ -17,7 +18,9 @@ DEFAULT_LON = location_config.get("longitude", 30.5234)
 
 # Streamlit UI
 st.title("Visual Crossing 24h Weather Plotter")
-st.write("Plot 24 hours of all available weather parameters for a location using Visual Crossing API.")
+st.write(
+    "Plot 24 hours of all available weather parameters for a location using Visual Crossing API."
+)
 
 # Location input
 lat = st.number_input("Latitude", value=float(DEFAULT_LAT), format="%.6f")
@@ -46,11 +49,13 @@ if do_plot:
     try:
         api = VisualCrossingAPI(API_KEY)
         draw = VisualCrossingDraw(api)
+
         # Instead of plt.show(), use st.pyplot
         # We'll monkeypatch plt.show to st.pyplot for this context
         def st_show(*args, **kwargs):
             st.pyplot(plt.gcf())
             plt.close()
+
         plt.show = st_show
         draw.plot_forecasts(
             locations=[(lat, lon)],
@@ -59,4 +64,4 @@ if do_plot:
             label_locations=True,
         )
     except Exception as e:
-        st.error(f"Error: {e}") 
+        st.error(f"Error: {e}")
