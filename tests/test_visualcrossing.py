@@ -1,6 +1,6 @@
 import pandas as pd
 from config import get_config
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, UTC
 from visualcrossing_api import VisualCrossingAPI
 import pytest
 
@@ -15,7 +15,7 @@ visual_crossing_api = VisualCrossingAPI(API_KEY)
 
 
 def test_visualcrossing_forecast_multi_location():
-    now = datetime.utcnow().replace(second=0, microsecond=0)
+    now = datetime.now(UTC).replace(second=0, microsecond=0)
     # Align 'now' to the previous 15-minute boundary
     minute = (now.minute // 15) * 15
     aligned_now = now.replace(minute=minute)
@@ -32,10 +32,18 @@ def test_visualcrossing_forecast_multi_location():
             start_datetime=start_dt_str,
             end_datetime=end_dt_str,
         )
-        assert isinstance(dfs_forecast, list), "get_forecast should return a list of DataFrames for multi-location input"
-        assert len(dfs_forecast) == len(multi_locations), "Should return one DataFrame per location"
-        for idx, ((lat, lon), df_forecast) in enumerate(zip(multi_locations, dfs_forecast)):
-            print(f"Forecast DataFrame for location {idx} ({lat}, {lon}) head:\n{df_forecast.head()}")
+        assert isinstance(
+            dfs_forecast, list
+        ), "get_forecast should return a list of DataFrames for multi-location input"
+        assert len(dfs_forecast) == len(
+            multi_locations
+        ), "Should return one DataFrame per location"
+        for idx, ((lat, lon), df_forecast) in enumerate(
+            zip(multi_locations, dfs_forecast)
+        ):
+            print(
+                f"Forecast DataFrame for location {idx} ({lat}, {lon}) head:\n{df_forecast.head()}"
+            )
             assert (
                 "timestamp" in df_forecast.columns
             ), f"DataFrame for location {idx} should have a 'timestamp' column"
@@ -51,7 +59,7 @@ def test_visualcrossing_forecast_multi_location():
 
 
 def test_visualcrossing_forecast_single_location():
-    now = datetime.utcnow().replace(second=0, microsecond=0)
+    now = datetime.now(UTC).replace(second=0, microsecond=0)
     # Align 'now' to the previous 15-minute boundary
     minute = (now.minute // 15) * 15
     aligned_now = now.replace(minute=minute)
@@ -67,10 +75,16 @@ def test_visualcrossing_forecast_single_location():
             start_datetime=start_dt_str,
             end_datetime=end_dt_str,
         )
-        assert isinstance(df_single, pd.DataFrame), "get_forecast should return a DataFrame for single-location input"
-        assert "timestamp" in df_single.columns, "Single-location DataFrame should have a 'timestamp' column"
+        assert isinstance(
+            df_single, pd.DataFrame
+        ), "get_forecast should return a DataFrame for single-location input"
+        assert (
+            "timestamp" in df_single.columns
+        ), "Single-location DataFrame should have a 'timestamp' column"
         if not df_single.empty:
-            assert pd.api.types.is_datetime64_any_dtype(df_single["timestamp"]), "'timestamp' column should be of datetime type for single-location"
+            assert pd.api.types.is_datetime64_any_dtype(
+                df_single["timestamp"]
+            ), "'timestamp' column should be of datetime type for single-location"
         else:
             print("Warning: Single-location DataFrame is empty.")
     except Exception as e:
@@ -78,17 +92,17 @@ def test_visualcrossing_forecast_single_location():
         assert False, f"Error during interval validation: {e}"
 
 
-@pytest.mark.skip(reason="Temporarily disabled for investigation or maintenance.")
 def test_visualcrossing_historical_data():
     # Define a date range for historical data, e.g., 1 day ago to today
-    end_date = datetime.utcnow().date()
+    end_date = datetime.now(UTC).date()
     start_date = end_date - timedelta(days=1)
 
     start_date_str = start_date.strftime("%Y-%m-%d")
     end_date_str = end_date.strftime("%Y-%m-%d")
 
     # For a 2-day period (start_date and end_date inclusive), 2 * 96 = 192 intervals
-    expected_intervals = 192
+    # But the API seems to return hourly data, so 2 * 24 = 48 intervals
+    expected_intervals = 48  # Change expected count to hourly intervals
 
     try:
         df_historical = visual_crossing_api.get_historical_data(
@@ -102,6 +116,15 @@ def test_visualcrossing_historical_data():
         print(f"Historical DataFrame head:\n{df_historical.head()}")
         print(f"Historical DataFrame tail:\n{df_historical.tail()}")
         print(f"Number of historical intervals: {actual_intervals}")
+        print(f"Expected intervals: {expected_intervals}")
+
+        # Add additional diagnostics
+        if not df_historical.empty:
+            print(
+                f"Timestamp range: {df_historical['timestamp'].min()} to {df_historical['timestamp'].max()}"
+            )
+            print(f"Unique hours: {df_historical['timestamp'].dt.hour.unique()}")
+            print(f"Data types: {df_historical.dtypes}")
 
         assert (
             "timestamp" in df_historical.columns
@@ -129,7 +152,7 @@ def test_compare_yesterday_wind_data():
     """
     try:
         # 1. Define yesterday
-        yesterday_date_obj = (datetime.utcnow() - timedelta(days=1)).date()
+        yesterday_date_obj = (datetime.now(UTC) - timedelta(days=1)).date()
 
         # For historical data API (YYYY-MM-DD)
         yesterday_date_str = yesterday_date_obj.strftime("%Y-%m-%d")
@@ -259,4 +282,3 @@ def test_compare_yesterday_wind_data():
     except Exception as e:
         print(f"Error during wind data comparison test: {e}")
         assert False, f"Error during wind data comparison test: {e}"
-

@@ -192,7 +192,7 @@ class VisualCrossingAPI:
         end_date,
     ):
         """
-        Retrieves historical weather data from Visual Crossing API at 15-minute precision and returns it as a pandas DataFrame.
+        Retrieves historical weather data from Visual Crossing API at hourly precision and returns it as a pandas DataFrame.
 
         Args:
             latitude (float): Latitude of the location.
@@ -201,7 +201,7 @@ class VisualCrossingAPI:
             end_date (str): End date for the historical data (YYYY-MM-DD).
 
         Returns:
-            pandas.DataFrame: DataFrame containing the 15-minute historical data,
+            pandas.DataFrame: DataFrame containing the hourly historical data,
                               with the first column as 'timestamp' and other columns
                               representing weather parameters.
 

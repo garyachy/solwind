@@ -435,7 +435,12 @@ class VisualCrossingDraw:
                 fontsize=10,
                 fontweight="bold",
                 verticalalignment="top",
-                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.9, edgecolor="gray"),
+                bbox=dict(
+                    boxstyle="round,pad=0.3",
+                    facecolor="white",
+                    alpha=0.9,
+                    edgecolor="gray",
+                ),
             )
 
             # Rotate labels
