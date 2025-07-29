@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import json
 import os
 from visualcrossing_api import VisualCrossingAPI
-from visualcrossing_draw import VisualCrossingDraw
+from visualcrossing_draw import VisualCrossingForecastDraw
 from config import get_config
 
 # Load config
@@ -48,7 +48,7 @@ do_plot = st.button("Plot Forecast")
 if do_plot:
     try:
         api = VisualCrossingAPI(API_KEY)
-        draw = VisualCrossingDraw(api)
+        draw = VisualCrossingForecastDraw(api)
 
         # Instead of plt.show(), use st.pyplot
         # We'll monkeypatch plt.show to st.pyplot for this context

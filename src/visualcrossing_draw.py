@@ -1,5 +1,5 @@
 """
-VisualCrossingDraw - class for building weather data charts from Visual Crossing API.
+VisualCrossingForecastDraw - class for building weather data charts from Visual Crossing API.
 """
 
 import pandas as pd
@@ -9,10 +9,10 @@ import numpy as np
 from datetime import timedelta
 
 
-class VisualCrossingDraw:
+class VisualCrossingForecastDraw:
     def __init__(self, api):
         """
-        Initializes the VisualCrossingDraw with a VisualCrossingAPI instance.
+        Initializes the VisualCrossingForecastDraw with a VisualCrossingAPI instance.
         Args:
             api: An instance of the VisualCrossingAPI class.
         """
