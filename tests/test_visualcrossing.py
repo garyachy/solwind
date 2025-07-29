@@ -2,11 +2,7 @@ import pandas as pd
 from config import get_config
 from datetime import datetime, timedelta, time
 from visualcrossing_api import VisualCrossingAPI
-from visualcrossing_api import VisualCrossingDraw
-import matplotlib
-matplotlib.use('Agg')
 import pytest
-import os
 
 config = get_config()
 visualcrossing_config = config.get("VisualCrossing", {})
@@ -264,26 +260,3 @@ def test_compare_yesterday_wind_data():
         print(f"Error during wind data comparison test: {e}")
         assert False, f"Error during wind data comparison test: {e}"
 
-
-def test_visualcrossing_draw_24h(monkeypatch):
-    """
-    Test VisualCrossingDraw by plotting 24 hours of all available weather parameters for the configured location.
-    This test is for manual inspection and does not assert.
-    """
-
-    now = datetime.utcnow().replace(second=0, microsecond=0)
-    minute = (now.minute // 15) * 15
-    aligned_now = now.replace(minute=minute)
-    hours = 24
-    end = aligned_now + timedelta(hours=hours)
-    start_dt_str = aligned_now.strftime("%Y-%m-%dT%H:%M:%S")
-    end_dt_str = end.strftime("%Y-%m-%dT%H:%M:%S")
-
-    draw = VisualCrossingDraw(visual_crossing_api)
-    # Plot all parameters for the configured location
-    draw.plot_forecasts(
-        locations=[(LATITUDE, LONGITUDE)],
-        start_datetime=start_dt_str,
-        end_datetime=end_dt_str,
-        label_locations=True,
-    )
