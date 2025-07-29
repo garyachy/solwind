@@ -68,32 +68,64 @@ class VisualCrossingForecastDraw:
         # Only keep columns that are numeric or boolean for plotting
         safe_params = []
         skipped_params = []
+        non_numeric_params = []
+
         for df in results:
             if not df.empty:
                 for param in all_params:
                     if param in df.columns:
                         # Check dtype and sample values
                         series = df[param]
+
+                        # First check if it's already numeric
                         if pd.api.types.is_numeric_dtype(
                             series
                         ) or pd.api.types.is_bool_dtype(series):
                             if param not in safe_params:
                                 safe_params.append(param)
                         else:
+                            # Try to convert to numeric if it's a string representation of numbers
+                            try:
+                                # Check if it's a string that can be converted to numeric
+                                if series.dtype == "object":
+                                    # Sample some non-null values to test conversion
+                                    sample = series.dropna().head(10)
+                                    if len(sample) > 0:
+                                        # Try to convert sample to numeric
+                                        numeric_sample = pd.to_numeric(
+                                            sample, errors="coerce"
+                                        )
+                                        if not numeric_sample.isna().all():
+                                            # If most values can be converted, consider it numeric
+                                            if (
+                                                numeric_sample.isna().sum()
+                                                / len(numeric_sample)
+                                                < 0.5
+                                            ):
+                                                if param not in safe_params:
+                                                    safe_params.append(param)
+                                                continue
+                            except:
+                                pass
+
                             # Check for lists/dicts in the first few non-null values
                             sample = series.dropna().head(5)
                             if any(isinstance(x, (list, dict)) for x in sample):
                                 if param not in skipped_params:
                                     skipped_params.append(param)
                             else:
-                                # If not list/dict but still not numeric, skip
-                                if param not in skipped_params:
-                                    skipped_params.append(param)
+                                # If not list/dict but still not numeric, add to non-numeric list
+                                if param not in non_numeric_params:
+                                    non_numeric_params.append(param)
+
+        # Combine all non-plottable parameters
+        all_skipped = skipped_params + non_numeric_params
+
         if not safe_params:
             print("No plottable (numeric/bool) weather parameters found.")
             return
-        if skipped_params:
-            print(f"Skipped non-numeric/list/dict parameters: {skipped_params}")
+        if all_skipped:
+            print(f"Skipped non-numeric/list/dict parameters: {all_skipped}")
         print("Available plottable parameters:", safe_params)
         # Plot each parameter as a separate subplot for each location
         for idx, (df, loc) in enumerate(zip(results, locations)):
@@ -451,3 +483,254 @@ class VisualCrossingForecastDraw:
 
             plt.tight_layout()
             plt.show()
+
+
+class VisualCrossingHistoryDraw:
+    def __init__(self, api):
+        """
+        Initializes the VisualCrossingHistoryDraw with a VisualCrossingAPI instance.
+        Args:
+            api: An instance of the VisualCrossingAPI class.
+        """
+        self.api = api
+
+    def plot_historical_data(
+        self,
+        latitude,
+        longitude,
+        start_date,
+        end_date,
+        parameters=None,
+        figsize=(14, 8),
+        time_format="%H:%M",
+        date_format="%Y-%m-%d",
+        show_grid=True,
+    ):
+        """
+        Plots historical weather data with proper time formatting.
+
+        Args:
+            latitude (float): Latitude of the location.
+            longitude (float): Longitude of the location.
+            start_date (str): Start date for the historical data (YYYY-MM-DD).
+            end_date (str): End date for the historical data (YYYY-MM-DD).
+            parameters (list, optional): List of weather parameters to plot. If None, plots all available.
+            figsize (tuple): Figure size for the plot.
+            time_format (str): Format for time display on x-axis (default: "%H:%M").
+            date_format (str): Format for date display on x-axis (default: "%Y-%m-%d").
+            show_grid (bool): Whether to show grid on plots (default: True).
+        """
+        # Get historical data
+        df = self.api.get_historical_data(latitude, longitude, start_date, end_date)
+
+        if df.empty:
+            print("No historical data to display.")
+            return
+
+        # Define parameters for building graphs
+        if parameters is None:
+            # Exclude metadata and select only numeric columns
+            metadata_cols = {
+                "timestamp",
+                "latitude",
+                "longitude",
+                "datetime",
+                "datetimeEpoch",
+            }
+            numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+            parameters = [col for col in numeric_cols if col not in metadata_cols]
+
+        if not parameters:
+            print("No numeric parameters for building graphs.")
+            return
+
+        # Define number of subplots
+        n_params = len(parameters)
+        fig, axes = plt.subplots(
+            n_params, 1, figsize=(figsize[0], figsize[1] * n_params)
+        )
+
+        if n_params == 1:
+            axes = [axes]
+
+        # Graph title
+        title = f"Historical weather data for coordinates {latitude:.4f}, {longitude:.4f}\n{start_date} - {end_date}"
+        fig.suptitle(title, fontsize=14, fontweight="bold")
+
+        # Define time range
+        time_range = df["timestamp"].max() - df["timestamp"].min()
+
+        for i, param in enumerate(parameters):
+            if param not in df.columns:
+                continue
+
+            ax = axes[i]
+            ax.plot(
+                df["timestamp"],
+                df[param],
+                linewidth=1.5,
+                marker="o",
+                markersize=2,
+                alpha=0.8,
+            )
+            ax.set_ylabel(param, fontsize=10, fontweight="bold")
+
+            # Grid settings
+            if show_grid:
+                ax.grid(True, alpha=0.3, linestyle="--")
+
+            # Time axis formatting - always show hours with dates
+            # Determine if dates need to be shown
+            if time_range > timedelta(hours=12):
+                # For ranges more than 12 hours show date and time
+                ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+                ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
+                ax.xaxis.set_minor_locator(mdates.HourLocator(interval=1))
+            else:
+                # For shorter ranges show only hours
+                ax.xaxis.set_major_formatter(mdates.DateFormatter(time_format))
+                ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=30))
+
+            # Add hour labels near each graph
+            time_range_str = f"{df['timestamp'].min().strftime('%H:%M')} - {df['timestamp'].max().strftime('%H:%M')}"
+            ax.text(
+                0.02,
+                0.98,
+                f"Time range: {time_range_str}",
+                transform=ax.transAxes,
+                fontsize=8,
+                verticalalignment="top",
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8),
+            )
+
+            # Rotate x-axis labels for better readability
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
+
+        # Adjust layout to prevent label cutoff
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.9)
+
+    def plot_historical_comparison(
+        self,
+        locations,
+        start_date,
+        end_date,
+        parameters=None,
+        figsize=(14, 6),
+        time_format="%H:%M",
+        date_format="%Y-%m-%d",
+        show_grid=True,
+        location_names=None,
+    ):
+        """
+        Plots historical weather data comparison for multiple locations.
+
+        Args:
+            locations (list): List of (lat, lon) tuples.
+            start_date (str): Start date for the historical data (YYYY-MM-DD).
+            end_date (str): End date for the historical data (YYYY-MM-DD).
+            parameters (list, optional): List of weather parameters to plot. If None, plots all available.
+            figsize (tuple): Figure size for the plot.
+            time_format (str): Format for time display on x-axis (default: "%H:%M").
+            date_format (str): Format for date display on x-axis (default: "%Y-%m-%d").
+            show_grid (bool): Whether to show grid on plots (default: True).
+            location_names (list, optional): List of location names for legend. If None, uses coordinates.
+        """
+        if not locations:
+            print("No locations provided.")
+            return
+
+        # Get historical data for all locations
+        all_data = []
+        for lat, lon in locations:
+            df = self.api.get_historical_data(lat, lon, start_date, end_date)
+            if not df.empty:
+                all_data.append((df, (lat, lon)))
+
+        if not all_data:
+            print("No historical data to display.")
+            return
+
+        # Define parameters for building graphs
+        if parameters is None:
+            # Use the first non-empty DataFrame to determine parameters
+            df_sample = all_data[0][0]
+            metadata_cols = {
+                "timestamp",
+                "latitude",
+                "longitude",
+                "datetime",
+                "datetimeEpoch",
+            }
+            numeric_cols = df_sample.select_dtypes(include=["number"]).columns.tolist()
+            parameters = [col for col in numeric_cols if col not in metadata_cols]
+
+        if not parameters:
+            print("No numeric parameters for building graphs.")
+            return
+
+        # Define number of subplots
+        n_params = len(parameters)
+        fig, axes = plt.subplots(
+            n_params, 1, figsize=(figsize[0], figsize[1] * n_params)
+        )
+
+        if n_params == 1:
+            axes = [axes]
+
+        # Graph title
+        title = f"Historical weather data comparison\n{start_date} - {end_date}"
+        fig.suptitle(title, fontsize=14, fontweight="bold")
+
+        # Define time range
+        time_range = (
+            all_data[0][0]["timestamp"].max() - all_data[0][0]["timestamp"].min()
+        )
+
+        for i, param in enumerate(parameters):
+            ax = axes[i]
+
+            for idx, (df, (lat, lon)) in enumerate(all_data):
+                if param not in df.columns:
+                    continue
+
+                # Create location label
+                if location_names and idx < len(location_names):
+                    label = location_names[idx]
+                else:
+                    label = f"({lat:.4f}, {lon:.4f})"
+
+                ax.plot(
+                    df["timestamp"],
+                    df[param],
+                    linewidth=1.5,
+                    marker="o",
+                    markersize=2,
+                    alpha=0.8,
+                    label=label,
+                )
+
+            ax.set_ylabel(param, fontsize=10, fontweight="bold")
+            ax.legend()
+
+            # Grid settings
+            if show_grid:
+                ax.grid(True, alpha=0.3, linestyle="--")
+
+            # Time axis formatting
+            if time_range > timedelta(hours=12):
+                ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+                ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
+                ax.xaxis.set_minor_locator(mdates.HourLocator(interval=1))
+            else:
+                ax.xaxis.set_major_formatter(mdates.DateFormatter(time_format))
+                ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=30))
+
+            # Rotate x-axis labels for better readability
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
+
+        # Adjust layout to prevent label cutoff
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.9)
