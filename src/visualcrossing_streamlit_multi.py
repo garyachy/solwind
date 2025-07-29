@@ -319,25 +319,40 @@ elif page == "Historical Plots":
                 st.info(
                     f"Plotting historical data for location: ({hist_lat:.4f}, {hist_lon:.4f})"
                 )
-                history_draw.plot_historical_data(
-                    latitude=hist_lat,
-                    longitude=hist_lon,
-                    start_date=start_date_str,
-                    end_date=end_date_str,
-                    parameters=selected_parameters if selected_parameters else None,
-                )
+
+                # Add progress indicator
+                with st.spinner("Fetching and plotting historical data..."):
+                    # Debug info
+                    st.write(f"Debug: Date range: {start_date_str} to {end_date_str}")
+                    st.write(
+                        f"Debug: Parameters: {selected_parameters if selected_parameters else 'All available'}"
+                    )
+
+                    history_draw.plot_historical_data(
+                        latitude=hist_lat,
+                        longitude=hist_lon,
+                        start_date=start_date_str,
+                        end_date=end_date_str,
+                        parameters=selected_parameters if selected_parameters else None,
+                    )
+                st.success("Historical data plotted successfully!")
             else:
                 st.info(
                     f"Plotting historical data comparison for {len(hist_locations)} locations"
                 )
-                history_draw.plot_historical_comparison(
-                    locations=hist_locations,
-                    start_date=start_date_str,
-                    end_date=end_date_str,
-                    parameters=selected_parameters if selected_parameters else None,
-                )
+
+                # Add progress indicator
+                with st.spinner("Fetching and plotting historical data comparison..."):
+                    history_draw.plot_historical_comparison(
+                        locations=hist_locations,
+                        start_date=start_date_str,
+                        end_date=end_date_str,
+                        parameters=selected_parameters if selected_parameters else None,
+                    )
+                st.success("Historical data comparison plotted successfully!")
         except Exception as e:
             st.error(f"Error plotting historical data: {e}")
+            st.error("Please check your API key and internet connection.")
 
 # Footer
 st.sidebar.markdown("---")

@@ -610,6 +610,7 @@ class VisualCrossingHistoryDraw:
         # Adjust layout to prevent label cutoff
         plt.tight_layout()
         plt.subplots_adjust(top=0.9)
+        plt.show()
 
     def plot_historical_comparison(
         self,
@@ -734,3 +735,4 @@ class VisualCrossingHistoryDraw:
         # Adjust layout to prevent label cutoff
         plt.tight_layout()
         plt.subplots_adjust(top=0.9)
+        plt.show()
