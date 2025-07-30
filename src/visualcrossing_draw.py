@@ -53,10 +53,9 @@ class VisualCrossingForecastDraw:
             results = [results]
         # Collect all parameter names (excluding metadata columns)
         metadata_cols = {
-            "timestamp",
+            "datetime",
             "latitude",
             "longitude",
-            "datetime",
             "datetimeEpoch",
         }
         all_params = set()
@@ -143,7 +142,7 @@ class VisualCrossingForecastDraw:
             fig.suptitle(title, fontsize=14, fontweight="bold")
 
             # Define time range for axis formatting
-            time_range = df["timestamp"].max() - df["timestamp"].min()
+            time_range = df["datetime"].max() - df["datetime"].min()
 
             for i, param in enumerate(safe_params):
                 if param not in df.columns:
@@ -151,7 +150,7 @@ class VisualCrossingForecastDraw:
 
                 ax = axes[i]
                 ax.plot(
-                    df["timestamp"],
+                    df["datetime"],
                     df[param],
                     label=param,
                     linewidth=1.5,
@@ -179,7 +178,7 @@ class VisualCrossingForecastDraw:
                     ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=30))
 
                 # Add hour labels near each graph
-                time_range_str = f"{df['timestamp'].min().strftime('%H:%M')} - {df['timestamp'].max().strftime('%H:%M')}"
+                time_range_str = f"{df['datetime'].min().strftime('%H:%M')} - {df['datetime'].max().strftime('%H:%M')}"
                 ax.text(
                     0.02,
                     0.95,
@@ -278,7 +277,7 @@ class VisualCrossingForecastDraw:
             # Define time range
             all_timestamps = []
             for df, _ in available_data:
-                all_timestamps.extend(df["timestamp"].tolist())
+                all_timestamps.extend(df["datetime"].tolist())
 
             if not all_timestamps:
                 continue
@@ -296,7 +295,7 @@ class VisualCrossingForecastDraw:
                 )
 
                 ax.plot(
-                    df["timestamp"],
+                    df["datetime"],
                     df[param],
                     label=loc_name,
                     linewidth=2,
