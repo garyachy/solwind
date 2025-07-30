@@ -112,9 +112,10 @@ class VisualCrossingAPI:
             return pd.DataFrame()
         df = pd.DataFrame(records)
         if "datetimeEpoch" in df.columns:
-            df["timestamp"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
-            cols = ["timestamp"] + [
-                col for col in df.columns if col not in ["timestamp", "datetimeEpoch"]
+            df["datetime"] = pd.to_datetime(df["datetimeEpoch"], unit="s")
+            df = df.drop(columns=["datetimeEpoch"])
+            cols = ["datetime"] + [
+                col for col in df.columns if col not in ["datetime"]
             ]
             df = df[cols]
         if lat is not None and lon is not None:
