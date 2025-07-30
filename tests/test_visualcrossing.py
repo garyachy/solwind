@@ -45,12 +45,12 @@ def test_visualcrossing_forecast_multi_location():
                 f"Forecast DataFrame for location {idx} ({lat}, {lon}) head:\n{df_forecast.head()}"
             )
             assert (
-                "timestamp" in df_forecast.columns
-            ), f"DataFrame for location {idx} should have a 'timestamp' column"
+                "datetime" in df_forecast.columns
+            ), f"DataFrame for location {idx} should have a 'datetime' column"
             if not df_forecast.empty:
                 assert pd.api.types.is_datetime64_any_dtype(
-                    df_forecast["timestamp"]
-                ), f"'timestamp' column should be of datetime type for location {idx}"
+                    df_forecast["datetime"]
+                ), f"'datetime' column should be of datetime type for location {idx}"
             else:
                 print(f"Warning: DataFrame for location {idx} is empty.")
     except Exception as e:
@@ -79,12 +79,12 @@ def test_visualcrossing_forecast_single_location():
             df_single, pd.DataFrame
         ), "get_forecast should return a DataFrame for single-location input"
         assert (
-            "timestamp" in df_single.columns
-        ), "Single-location DataFrame should have a 'timestamp' column"
+            "datetime" in df_single.columns
+        ), "Single-location DataFrame should have a 'datetime' column"
         if not df_single.empty:
             assert pd.api.types.is_datetime64_any_dtype(
-                df_single["timestamp"]
-            ), "'timestamp' column should be of datetime type for single-location"
+                df_single["datetime"]
+            ), "'datetime' column should be of datetime type for single-location"
         else:
             print("Warning: Single-location DataFrame is empty.")
     except Exception as e:
