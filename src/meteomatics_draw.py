@@ -1,6 +1,5 @@
 """
-VisualCrossingForecastDraw - class for building weather data charts from Visual Crossing API.
-Extended to include Meteomatics comparison functionality.
+MeteomaticsForecastDraw - class for building weather data charts from Meteomatics API.
 """
 
 import pandas as pd
@@ -8,25 +7,25 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
 from datetime import timedelta
-from meteomatics_api import MeteomaticsAPI
-from config import get_config
 
 
-class VisualCrossingForecastDraw:
+class MeteomaticsForecastDraw:
     def __init__(self, api):
         """
-        Initializes the VisualCrossingForecastDraw with a VisualCrossingAPI instance.
+        Initializes the MeteomaticsForecastDraw with a MeteomaticsAPI instance.
         Args:
-            api: An instance of the VisualCrossingAPI class.
+            api: An instance of the MeteomaticsAPI class.
         """
         self.api = api
 
     def plot_forecasts(
         self,
         locations,
+        parameters=None,
         start_datetime=None,
         end_datetime=None,
-        unit_group="metric",
+        model="mix",
+        interval=None,
         label_locations=True,
         figsize=(14, 4),
         time_format="%H:%M",
@@ -37,9 +36,11 @@ class VisualCrossingForecastDraw:
         Fetches forecasts for multiple locations and plots all received weather parameters for each on separate subplots.
         Args:
             locations (list): List of (lat, lon) tuples.
-            start_datetime (str): Start datetime for the forecast.
-            end_datetime (str): End datetime for the forecast.
-            unit_group (str): Unit group for the API (default: "metric").
+            parameters (list, optional): List of weather parameters. Defaults to ["t_2m:C"].
+            start_datetime (datetime, optional): Start datetime for the forecast.
+            end_datetime (datetime, optional): End datetime for the forecast.
+            model (str, optional): Weather model to use. Defaults to "mix".
+            interval (timedelta, optional): Data interval. Defaults to 1 hour.
             label_locations (bool): Whether to label each line with its location.
             figsize (tuple): Figure size for each subplot.
             time_format (str): Format for time display on x-axis (default: "%H:%M").
@@ -48,18 +49,18 @@ class VisualCrossingForecastDraw:
         """
         results = self.api.get_forecast(
             locations,
+            parameters=parameters,
             start_datetime=start_datetime,
             end_datetime=end_datetime,
-            unit_group=unit_group,
+            model=model,
+            interval=interval,
         )
-        if not isinstance(results, list):
-            results = [results]
+        
         # Collect all parameter names (excluding metadata columns)
         metadata_cols = {
             "datetime",
             "latitude",
             "longitude",
-            "datetimeEpoch",
         }
         all_params = set()
         for df in results:
@@ -67,6 +68,7 @@ class VisualCrossingForecastDraw:
                 all_params.update(
                     [col for col in df.columns if col not in metadata_cols]
                 )
+        
         # Only keep columns that are numeric or boolean for plotting
         safe_params = []
         skipped_params = []
@@ -129,6 +131,7 @@ class VisualCrossingForecastDraw:
         if all_skipped:
             print(f"Skipped non-numeric/list/dict parameters: {all_skipped}")
         print("Available plottable parameters:", safe_params)
+        
         # Plot each parameter as a separate subplot for each location
         for idx, (df, loc) in enumerate(zip(results, locations)):
             if df.empty:
@@ -141,7 +144,7 @@ class VisualCrossingForecastDraw:
                 axes = [axes]
 
             # Define title with coordinates
-            title = f"Weather forecast for coordinates {loc[0]:.4f}, {loc[1]:.4f}"
+            title = f"Meteomatics weather forecast for coordinates {loc[0]:.4f}, {loc[1]:.4f}"
             fig.suptitle(title, fontsize=14, fontweight="bold")
 
             # Define time range for axis formatting
@@ -209,15 +212,14 @@ class VisualCrossingForecastDraw:
             plt.tight_layout(rect=[0, 0.03, 1, 0.97])
             plt.show()
 
-
-
     def plot_comparison(
         self,
         locations,
         parameters,
         start_datetime=None,
         end_datetime=None,
-        unit_group="metric",
+        model="mix",
+        interval=None,
         figsize=(14, 6),
         time_format="%H:%M",
         date_format="%Y-%m-%d",
@@ -230,9 +232,10 @@ class VisualCrossingForecastDraw:
         Args:
             locations (list): List of (lat, lon) tuples.
             parameters (list): List of weather parameters to compare.
-            start_datetime (str): Start datetime for the forecast.
-            end_datetime (str): End datetime for the forecast.
-            unit_group (str): Unit group for the API (default: "metric").
+            start_datetime (datetime, optional): Start datetime for the forecast.
+            end_datetime (datetime, optional): End datetime for the forecast.
+            model (str, optional): Weather model to use. Defaults to "mix".
+            interval (timedelta, optional): Data interval. Defaults to 1 hour.
             figsize (tuple): Figure size for the plot.
             time_format (str): Format for time display on x-axis (default: "%H:%M").
             date_format (str): Format for date display on x-axis (default: "%Y-%m-%d").
@@ -242,13 +245,12 @@ class VisualCrossingForecastDraw:
         # Get data for all locations
         results = self.api.get_forecast(
             locations,
+            parameters=parameters,
             start_datetime=start_datetime,
             end_datetime=end_datetime,
-            unit_group=unit_group,
+            model=model,
+            interval=interval,
         )
-
-        if not isinstance(results, list):
-            results = [results]
 
         # Check if there is data
         valid_results = [
@@ -310,7 +312,7 @@ class VisualCrossingForecastDraw:
 
             # Graph settings
             ax.set_title(
-                f"Comparison of parameter '{param}' for different locations",
+                f"Meteomatics comparison of parameter '{param}' for different locations",
                 fontsize=14,
                 fontweight="bold",
             )
@@ -359,209 +361,4 @@ class VisualCrossingForecastDraw:
             ax.set_xlabel("Time", fontsize=12, fontweight="bold")
 
             plt.tight_layout()
-            plt.show()
-
-    def plot_with_meteomatics_comparison(
-        self,
-        locations,
-        parameters,
-        start_datetime=None,
-        end_datetime=None,
-        unit_group="metric",
-        model="mix",
-        interval=None,
-        figsize=(14, 6),
-        time_format="%H:%M",
-        date_format="%Y-%m-%d",
-        show_grid=True,
-        location_names=None,
-    ):
-        """
-        Plots comparison of weather parameters from both Visual Crossing and Meteomatics APIs.
-
-        Args:
-            locations (list): List of (lat, lon) tuples.
-            parameters (list): List of weather parameters to compare.
-            start_datetime (datetime, optional): Start datetime for the forecast.
-            end_datetime (datetime, optional): End datetime for the forecast.
-            unit_group (str): Unit group for Visual Crossing API (default: "metric").
-            model (str, optional): Weather model for Meteomatics. Defaults to "mix".
-            interval (timedelta, optional): Data interval for Meteomatics. Defaults to 1 hour.
-            figsize (tuple): Figure size for the plot.
-            time_format (str): Format for time display on x-axis (default: "%H:%M").
-            date_format (str): Format for date display on x-axis (default: "%Y-%m-%d").
-            show_grid (bool): Whether to show grid on plots (default: True).
-            location_names (list, optional): List of names for locations. If None, uses coordinates.
-        """
-        # Initialize MeteomaticsAPI
-        config = get_config()
-        meteomatics_config = config.get("Meteomatics", {})
-        username = meteomatics_config.get("username")
-        password = meteomatics_config.get("password")
-        
-        if not username or not password:
-            print("Meteomatics credentials not found. Skipping Meteomatics comparison.")
-            return
-        
-        meteomatics_api = MeteomaticsAPI(username, password)
-        
-        # Get data from both APIs
-        try:
-            vc_results = self.api.get_forecast(
-                locations,
-                start_datetime=start_datetime,
-                end_datetime=end_datetime,
-                unit_group=unit_group,
-            )
-        except Exception as e:
-            print(f"Error fetching Visual Crossing data: {e}")
-            vc_results = []
-
-        try:
-            mm_results = meteomatics_api.get_forecast(
-                locations,
-                parameters=parameters,
-                start_datetime=start_datetime,
-                end_datetime=end_datetime,
-                model=model,
-                interval=interval,
-            )
-        except Exception as e:
-            print(f"Error fetching Meteomatics data: {e}")
-            mm_results = []
-
-        # Check if there is data from at least one API
-        valid_vc_results = [
-            (df, loc, "Visual Crossing") 
-            for df, loc in zip(vc_results, locations) 
-            if not df.empty
-        ]
-        valid_mm_results = [
-            (df, loc, "Meteomatics") 
-            for df, loc in zip(mm_results, locations) 
-            if not df.empty
-        ]
-
-        if not valid_vc_results and not valid_mm_results:
-            print("No data available from either API for comparison.")
-            return
-
-        # Define location names
-        if location_names is None:
-            location_names = [f"{lat:.4f}, {lon:.4f}" for lat, lon in locations]
-
-        # Build graphs for each parameter
-        for param in parameters:
-            # Check if parameter exists in data from both APIs
-            available_data = []
-            
-            # Add Visual Crossing data
-            for df, loc, api_name in valid_vc_results:
-                if param in df.columns:
-                    available_data.append((df, loc, api_name))
-            
-            # Add Meteomatics data
-            for df, loc, api_name in valid_mm_results:
-                if param in df.columns:
-                    available_data.append((df, loc, api_name))
-
-            if not available_data:
-                print(f"Parameter '{param}' not found in data from either API.")
-                continue
-
-            # Create graph for this parameter
-            fig, ax = plt.subplots(figsize=figsize)
-
-            # Define time range
-            all_timestamps = []
-            for df, _, _ in available_data:
-                all_timestamps.extend(df["datetime"].tolist())
-
-            if not all_timestamps:
-                continue
-
-            time_range = max(all_timestamps) - min(all_timestamps)
-
-            # Build lines for each location and API
-            colors = plt.cm.Set3(np.linspace(0, 1, len(available_data)))
-            for i, (df, loc, api_name) in enumerate(available_data):
-                loc_idx = locations.index(loc)
-                loc_name = (
-                    location_names[loc_idx]
-                    if loc_idx < len(location_names)
-                    else f"{loc[0]:.4f}, {loc[1]:.4f}"
-                )
-
-                # Create label with location and API name
-                label = f"{loc_name} ({api_name})"
-
-                ax.plot(
-                    df["datetime"],
-                    df[param],
-                    label=label,
-                    linewidth=2,
-                    marker="o",
-                    markersize=4,
-                    color=colors[i],
-                    alpha=0.8,
-                )
-
-            # Graph settings
-            ax.set_title(
-                f"Comparison of parameter '{param}' - Visual Crossing vs Meteomatics",
-                fontsize=14,
-                fontweight="bold",
-            )
-            ax.set_ylabel(param, fontsize=12, fontweight="bold")
-            ax.legend(fontsize=10, loc="best")
-
-            # Grid settings
-            if show_grid:
-                ax.grid(True, alpha=0.3, linestyle="--")
-
-            # Time axis formatting - always show hours with dates
-            # Determine if dates need to be shown
-            if time_range > timedelta(hours=12):
-                # For ranges more than 12 hours show date and time
-                ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
-                ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
-                ax.xaxis.set_minor_locator(mdates.HourLocator(interval=1))
-            else:
-                # For shorter ranges show only hours
-                ax.xaxis.set_major_formatter(mdates.DateFormatter(time_format))
-                ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
-                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=30))
-
-            # Add hour labels near the graph
-            time_range_str = f"{min(all_timestamps).strftime('%H:%M')} - {max(all_timestamps).strftime('%H:%M')}"
-            ax.text(
-                0.02,
-                0.95,
-                f"Time: {time_range_str}",
-                transform=ax.transAxes,
-                fontsize=10,
-                fontweight="bold",
-                verticalalignment="top",
-                bbox=dict(
-                    boxstyle="round,pad=0.3",
-                    facecolor="white",
-                    alpha=0.9,
-                    edgecolor="gray",
-                ),
-            )
-
-            # Rotate labels
-            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
-            plt.setp(ax.xaxis.get_minorticklabels(), rotation=45, ha="right")
-
-            ax.set_xlabel("Time", fontsize=12, fontweight="bold")
-
-            plt.tight_layout()
-            plt.show()
-
-
-
-
-
-
-
+            plt.show() 
