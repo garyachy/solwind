@@ -151,10 +151,49 @@ if page == "Forecast Plots":
                 )
             locations.append((extra_lat, extra_lon))
 
+    # Parameter selection
+    st.subheader("Weather Parameters")
+    st.write("Select specific weather parameters to plot (leave empty for all available):")
+    
+    # VisualCrossing parameters
+    visualcrossing_parameters = [
+        "temp",  # Temperature
+        "feelslike",  # Feels like temperature
+        "humidity",  # Humidity
+        "dew",  # Dew point
+        "precip",  # Precipitation
+        "precipprob",  # Precipitation probability
+        "precipcover",  # Precipitation coverage
+        "preciptype",  # Precipitation type
+        "snow",  # Snow
+        "snowdepth",  # Snow depth
+        "windspeed",  # Wind speed
+        "winddir",  # Wind direction
+        "pressure",  # Pressure
+        "cloudcover",  # Cloud cover
+        "visibility",  # Visibility
+        "solarradiation",  # Solar radiation
+        "solarenergy",  # Solar energy
+        "uvindex",  # UV index
+        "severerisk",  # Severe risk
+        "conditions",  # Weather conditions
+        "icon",  # Weather icon
+        "stations",  # Weather stations
+        "source",  # Data source
+    ]
+    
+    selected_parameters = st.multiselect(
+        "Select parameters",
+        options=visualcrossing_parameters,
+        default=[],
+        help="Leave empty to plot all available parameters",
+        key="forecast_parameters"
+    )
+
     # Parameter information
     st.subheader("Available Parameters")
     st.write(
-        "The forecast will automatically plot all available numeric weather parameters including:"
+        "If no specific parameters are selected, the forecast will automatically plot all available numeric weather parameters including:"
     )
     st.write(
         "Temperature, humidity, wind, precipitation, pressure, solar radiation, and more."
@@ -177,10 +216,14 @@ if page == "Forecast Plots":
             else:
                 st.info(f"Plotting forecast for {len(locations)} locations")
 
+            # Use selected parameters if any, otherwise None for all available
+            parameters = selected_parameters if selected_parameters else None
+            
             forecast_draw.plot_forecasts(
                 locations=locations,
                 start_datetime=start_dt.strftime("%Y-%m-%dT%H:%M:%S"),
                 end_datetime=end_dt.strftime("%Y-%m-%dT%H:%M:%S"),
+                parameters=parameters,
                 label_locations=True,
             )
         except Exception as e:
@@ -258,12 +301,70 @@ elif page == "API Comparison":
         "precip", "precip_1h:mm",  # Precipitation
     ]
     
-    selected_parameters = st.multiselect(
-        "Select parameters",
-        options=common_parameters,
-        default=["temp", "t_2m:C"],
-        key="comparison_parameters"
-    )
+    # VisualCrossing specific parameters
+    visualcrossing_parameters = [
+        "temp",  # Temperature
+        "feelslike",  # Feels like temperature
+        "humidity",  # Humidity
+        "dew",  # Dew point
+        "precip",  # Precipitation
+        "precipprob",  # Precipitation probability
+        "precipcover",  # Precipitation coverage
+        "preciptype",  # Precipitation type
+        "snow",  # Snow
+        "snowdepth",  # Snow depth
+        "windspeed",  # Wind speed
+        "winddir",  # Wind direction
+        "pressure",  # Pressure
+        "cloudcover",  # Cloud cover
+        "visibility",  # Visibility
+        "solarradiation",  # Solar radiation
+        "solarenergy",  # Solar energy
+        "uvindex",  # UV index
+        "severerisk",  # Severe risk
+        "conditions",  # Weather conditions
+        "icon",  # Weather icon
+        "stations",  # Weather stations
+        "source",  # Data source
+    ]
+    
+    # Meteomatics specific parameters
+    meteomatics_parameters = [
+        "t_2m:C",  # Temperature at 2m
+        "rh_2m:p",  # Relative humidity at 2m
+        "wind_speed_10m:ms",  # Wind speed at 10m
+        "wind_dir_10m:d",  # Wind direction at 10m
+        "msl_pressure:hPa",  # Mean sea level pressure
+        "precip_1h:mm",  # 1-hour precipitation
+        "precip_total:mm",  # Total precipitation
+        "solar_radiation:W",  # Solar radiation
+        "cloud_cover:p",  # Cloud cover percentage
+        "visibility:m",  # Visibility
+        "dew_point_2m:C",  # Dew point at 2m
+        "feels_like_2m:C",  # Feels like temperature
+    ]
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("VisualCrossing Parameters")
+        selected_visualcrossing_parameters = st.multiselect(
+            "Select VisualCrossing parameters",
+            options=visualcrossing_parameters,
+            default=["temp"],
+            key="comparison_visualcrossing_parameters",
+            help="Choose which VisualCrossing parameters to include in the comparison"
+        )
+    
+    with col2:
+        st.subheader("Meteomatics Parameters")
+        selected_meteomatics_parameters = st.multiselect(
+            "Select Meteomatics parameters",
+            options=meteomatics_parameters,
+            default=["t_2m:C"],
+            key="comparison_meteomatics_parameters",
+            help="Choose which Meteomatics parameters to include in the comparison"
+        )
 
     # API settings
     st.subheader("API Settings")
@@ -297,15 +398,17 @@ elif page == "API Comparison":
                 plt.show = st_show
 
                 st.info(f"Comparing APIs for location: ({lat:.4f}, {lon:.4f})")
-                st.info(f"Parameters: {', '.join(selected_parameters)}")
+                st.info(f"VisualCrossing parameters: {', '.join(selected_visualcrossing_parameters)}")
+                st.info(f"Meteomatics parameters: {', '.join(selected_meteomatics_parameters)}")
 
                 combined_draw.plot_comparison(
                     locations=[(lat, lon)],
-                    parameters=selected_parameters,
+                    parameters=selected_meteomatics_parameters,
                     start_datetime=start_dt,
                     end_datetime=end_dt,
                     unit_group=unit_group,
                     model=model,
+                    visualcrossing_parameters=selected_visualcrossing_parameters,
                 )
             else:
                 st.error("Unable to initialize both APIs. Please check your configuration.")

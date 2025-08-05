@@ -157,12 +157,20 @@ class VisualCrossingAPI:
         start_datetime=None,
         end_datetime=None,
         unit_group="metric",
+        parameters=None,
     ):
         """
         Retrieves weather forecast data from Visual Crossing API.
         - If locations contains one (lat, lon) tuple, uses /timeline and returns a single DataFrame.
         - If locations contains multiple tuples, uses /timelinemulti and returns a list of DataFrames.
         Now also validates that all expected 15-min timestamps are present.
+        
+        Args:
+            locations (list): List of (lat, lon) tuples.
+            start_datetime (str, optional): Start datetime for the forecast.
+            end_datetime (str, optional): End datetime for the forecast.
+            unit_group (str): Unit group for the API (default: "metric").
+            parameters (list, optional): List of specific parameters to include. If None, includes all available parameters.
         """
         data = self._fetch_forecast_data(
             locations,
@@ -172,6 +180,28 @@ class VisualCrossingAPI:
             include="hours,minutes",
         )
         parsed = self._parse_forecast_data(data)
+        
+        # Filter by parameters if specified
+        if parameters is not None:
+            if isinstance(parsed, list):
+                filtered_results = []
+                for df in parsed:
+                    if not df.empty:
+                        # Keep datetime, latitude, longitude columns plus selected parameters
+                        keep_cols = ["datetime", "latitude", "longitude"]
+                        available_params = [p for p in parameters if p in df.columns]
+                        filtered_df = df[keep_cols + available_params].copy()
+                        filtered_results.append(filtered_df)
+                    else:
+                        filtered_results.append(df)
+                parsed = filtered_results
+            else:
+                if not parsed.empty:
+                    # Keep datetime, latitude, longitude columns plus selected parameters
+                    keep_cols = ["datetime", "latitude", "longitude"]
+                    available_params = [p for p in parameters if p in parsed.columns]
+                    parsed = parsed[keep_cols + available_params].copy()
+        
         # Only validate if both start and end datetimes are provided
         if start_datetime and end_datetime:
             if isinstance(parsed, list):

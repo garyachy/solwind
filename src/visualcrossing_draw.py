@@ -27,6 +27,7 @@ class VisualCrossingForecastDraw:
         start_datetime=None,
         end_datetime=None,
         unit_group="metric",
+        parameters=None,
         label_locations=True,
         figsize=(14, 4),
         time_format="%H:%M",
@@ -40,6 +41,7 @@ class VisualCrossingForecastDraw:
             start_datetime (str): Start datetime for the forecast.
             end_datetime (str): End datetime for the forecast.
             unit_group (str): Unit group for the API (default: "metric").
+            parameters (list, optional): List of specific parameters to plot. If None, plots all available parameters.
             label_locations (bool): Whether to label each line with its location.
             figsize (tuple): Figure size for each subplot.
             time_format (str): Format for time display on x-axis (default: "%H:%M").
@@ -51,6 +53,7 @@ class VisualCrossingForecastDraw:
             start_datetime=start_datetime,
             end_datetime=end_datetime,
             unit_group=unit_group,
+            parameters=parameters,
         )
         if not isinstance(results, list):
             results = [results]
