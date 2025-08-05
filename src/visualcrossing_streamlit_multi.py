@@ -266,6 +266,9 @@ with main_col:
     elif page == "API Comparison":
         st.title("🌤️ Weather API Comparison")
         st.write("Compare weather forecasts from Visual Crossing and Meteomatics APIs.")
+        
+        # Info about 15-minute resolution for Meteomatics
+        st.info("📊 **Meteomatics High-Resolution**: Meteomatics data uses 15-minute intervals for detailed comparison, while Visual Crossing uses standard hourly intervals.")
 
         # Check if both APIs are available
         meteomatics_available = METEOMATICS_USERNAME and METEOMATICS_PASSWORD
@@ -458,6 +461,7 @@ with main_col:
                         f"Meteomatics parameters: {', '.join(selected_meteomatics_parameters)}"
                     )
 
+                    # Use 15-minute intervals for Meteomatics in comparison
                     combined_draw.plot_comparison(
                         locations=[(lat, lon)],
                         parameters=selected_meteomatics_parameters,
@@ -466,6 +470,7 @@ with main_col:
                         unit_group=unit_group,
                         model=model,
                         visualcrossing_parameters=selected_visualcrossing_parameters,
+                        meteomatics_interval=timedelta(minutes=15),  # Force 15-minute resolution
                     )
                 else:
                     st.error(
@@ -478,7 +483,10 @@ with main_col:
     # Meteomatics Plots Page
     elif page == "Meteomatics Plots":
         st.title("🌤️ Meteomatics Weather Forecast")
-        st.write("Plot weather forecasts for locations using Meteomatics API.")
+        st.write("Plot weather forecasts for locations using Meteomatics API with 15-minute resolution.")
+        
+        # Info about 15-minute resolution
+        st.info("📊 **High-Resolution Data**: This page uses 15-minute intervals for detailed weather forecasts, providing 4x more data points than standard 1-hour resolution.")
 
         # Check if Meteomatics API is available
         meteomatics_available = METEOMATICS_USERNAME and METEOMATICS_PASSWORD
@@ -583,13 +591,9 @@ with main_col:
                 key="meteomatics_model",
             )
         with col2:
-            interval_hours = st.selectbox(
-                "Data Interval",
-                options=[1, 3, 6, 12, 24],
-                index=0,
-                help="Time interval between data points in hours",
-                key="meteomatics_interval",
-            )
+            # Always use 15-minute intervals for high-resolution data
+            st.info("📊 Using 15-minute resolution for high-quality data")
+            interval_hours = 0.25  # 15 minutes in hours
 
         # Parameter selection
         st.subheader("Weather Parameters")
@@ -655,8 +659,8 @@ with main_col:
                     # Use selected parameters if any, otherwise None for all available
                     parameters = selected_parameters if selected_parameters else None
 
-                    # Set interval as timedelta
-                    interval = timedelta(hours=interval_hours)
+                    # Set interval as timedelta (15 minutes)
+                    interval = timedelta(minutes=15)
 
                     if len(locations) == 1:
                         # Single location - use plot_forecasts

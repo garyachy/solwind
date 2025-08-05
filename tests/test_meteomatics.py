@@ -207,11 +207,12 @@ def test_meteomatics_datetime_different_intervals():
     )
     end_datetime = start_datetime + timedelta(hours=6)
 
-    # Test different intervals
+    # Test different intervals including 15-minute resolution
     intervals = [
-        timedelta(hours=1),
-        timedelta(hours=3),
-        timedelta(hours=6)
+        timedelta(minutes=15),  # 15 minutes (new default)
+        timedelta(hours=1),     # 1 hour
+        timedelta(hours=3),     # 3 hours
+        timedelta(hours=6)      # 6 hours
     ]
 
     for interval in intervals:

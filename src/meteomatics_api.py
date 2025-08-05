@@ -28,7 +28,7 @@ class MeteomaticsAPI:
         interval=None,
     ):
         """
-        Retrieves weather forecast data from Meteomatics API.
+        Retrieves weather forecast data from Meteomatics API with support for 15-minute resolution.
 
         Args:
             locations (list): List of (lat, lon) tuples.
@@ -36,7 +36,7 @@ class MeteomaticsAPI:
             start_datetime (datetime, optional): Start datetime for the forecast.
             end_datetime (datetime, optional): End datetime for the forecast.
             model (str, optional): Weather model to use. Defaults to "mix".
-            interval (timedelta, optional): Data interval. Defaults to 1 hour.
+            interval (timedelta, optional): Data interval. Defaults to 15 minutes for high-resolution data.
 
         Returns:
             list: List of DataFrames, one for each location.
@@ -57,8 +57,24 @@ class MeteomaticsAPI:
         if end_datetime is None:
             end_datetime = start_datetime
 
+        # Default to 15-minute intervals for high-resolution data
         if interval is None:
-            interval = dt.timedelta(hours=1)
+            interval = dt.timedelta(minutes=15)
+
+        # Validate interval - Meteomatics supports various intervals
+        supported_intervals = [
+            dt.timedelta(minutes=15),  # 15 minutes
+            dt.timedelta(minutes=30),  # 30 minutes
+            dt.timedelta(hours=1),     # 1 hour
+            dt.timedelta(hours=3),     # 3 hours
+            dt.timedelta(hours=6),     # 6 hours
+            dt.timedelta(hours=12),    # 12 hours
+            dt.timedelta(days=1),      # 1 day
+        ]
+        
+        if interval not in supported_intervals:
+            print(f"Warning: Interval {interval} may not be supported by Meteomatics API. "
+                  f"Supported intervals: {supported_intervals}")
 
         results = []
         for lat, lon in locations:
@@ -120,4 +136,64 @@ class MeteomaticsAPI:
                 # Return empty DataFrame for failed locations
                 results.append(pd.DataFrame())
 
-        return results 
+        return results
+
+    def get_high_resolution_forecast(
+        self,
+        locations,
+        parameters=None,
+        start_datetime=None,
+        end_datetime=None,
+        model="mix",
+    ):
+        """
+        Retrieves high-resolution weather forecast data with 15-minute intervals.
+
+        Args:
+            locations (list): List of (lat, lon) tuples.
+            parameters (list, optional): List of weather parameters. Defaults to ["t_2m:C"].
+            start_datetime (datetime, optional): Start datetime for the forecast.
+            end_datetime (datetime, optional): End datetime for the forecast.
+            model (str, optional): Weather model to use. Defaults to "mix".
+
+        Returns:
+            list: List of DataFrames, one for each location with 15-minute resolution.
+        """
+        return self.get_forecast(
+            locations=locations,
+            parameters=parameters,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+            model=model,
+            interval=dt.timedelta(minutes=15)
+        )
+
+    def get_standard_forecast(
+        self,
+        locations,
+        parameters=None,
+        start_datetime=None,
+        end_datetime=None,
+        model="mix",
+    ):
+        """
+        Retrieves standard weather forecast data with 1-hour intervals.
+
+        Args:
+            locations (list): List of (lat, lon) tuples.
+            parameters (list, optional): List of weather parameters. Defaults to ["t_2m:C"].
+            start_datetime (datetime, optional): Start datetime for the forecast.
+            end_datetime (datetime, optional): End datetime for the forecast.
+            model (str, optional): Weather model to use. Defaults to "mix".
+
+        Returns:
+            list: List of DataFrames, one for each location with 1-hour resolution.
+        """
+        return self.get_forecast(
+            locations=locations,
+            parameters=parameters,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+            model=model,
+            interval=dt.timedelta(hours=1)
+        ) 
