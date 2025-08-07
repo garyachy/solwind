@@ -38,10 +38,31 @@ def test_get_high_resolution_forecast_basic_parameters():
     # Initialize API
     api = MeteomaticsAPI(username, password)
     locations = [(latitude, longitude)]
-    
+
     # Define basic parameters that are known to work
+    # Tested parameters with current "basic" subscription:
+    # ✅ SUPPORTED (5 parameters):
+    # - t_2m:C                    # Temperature at 2m in Celsius
+    # - wind_speed_10m:ms         # Wind speed at 10m in m/s
+    # - wind_dir_10m:d            # Wind direction at 10m in degrees
+    # - msl_pressure:hPa          # Mean sea level pressure in hPa
+    # - precip_1h:mm              # 1-hour precipitation in mm
+    #
+    # ❌ NOT SUPPORTED (6 parameters):
+    # - rh_2m:p                   # Relative humidity at 2m in %
+    # - cloud_cover_total:p       # Total cloud cover in %
+    # - visibility:m              # Visibility in meters
+    # - wind_gust_10m:ms          # Wind gust at 10m in m/s
+    # - precip_total:mm           # Total precipitation in mm
+    # - t_dewpoint_2m:C          # Dew point temperature at 2m in Celsius
+    # - t_ground:C                # Ground temperature in Celsius
+    #
     parameters = [
-        "t_2m:C",                    # Temperature at 2m in Celsius
+        "t_2m:C",  # Temperature at 2m in Celsius
+        "wind_speed_10m:ms",  # Wind speed at 10m in m/s
+        "wind_dir_10m:d",  # Wind direction at 10m in degrees
+        "msl_pressure:hPa",  # Mean sea level pressure in hPa
+        "precip_1h:mm",  # 1-hour precipitation in mm
     ]
 
     # Set up time range: 12 hours ahead from current time
@@ -73,9 +94,7 @@ def test_get_high_resolution_forecast_basic_parameters():
 
         # Check that all requested parameters exist in the DataFrame
         for param in parameters:
-            assert (
-                param in df.columns
-            ), f"Parameter '{param}' not found in DataFrame"
+            assert param in df.columns, f"Parameter '{param}' not found in DataFrame"
 
         # Validate time range
         min_datetime = df["datetime"].min()
@@ -125,24 +144,26 @@ def test_get_high_resolution_forecast_basic_parameters():
         for param in parameters:
             param_values = df[param].dropna()
             assert len(param_values) > 0, f"All values for parameter '{param}' are NaN"
-            
+
             # Store statistics for reporting
             parameter_stats[param] = {
-                'min': param_values.min(),
-                'max': param_values.max(),
-                'mean': param_values.mean(),
-                'count': len(param_values)
+                "min": param_values.min(),
+                "max": param_values.max(),
+                "mean": param_values.mean(),
+                "count": len(param_values),
             }
 
         # Print summary for verification
-        print(f"✅ High-resolution forecast test with {len(parameters)} parameters passed:")
+        print(
+            f"✅ High-resolution forecast test with {len(parameters)} parameters passed:"
+        )
         print(f"   - Data points: {len(df)}")
         print(f"   - Time range: {min_datetime} to {max_datetime}")
         print(f"   - Expected points: {expected_points} (12 hours × 4 points/hour)")
         print(f"   - Actual points: {len(df)}")
         print(f"   - Parameters tested: {len(parameters)}")
         print(f"\nParameter Statistics:")
-        
+
         for param, stats in parameter_stats.items():
             print(f"   - {param}:")
             print(f"     Range: {stats['min']:.2f} to {stats['max']:.2f}")
@@ -161,18 +182,30 @@ def test_get_high_resolution_forecast_basic_parameters():
         # Additional validation: Check for reasonable value ranges for specific parameters
         if "t_2m:C" in parameter_stats:
             temp_stats = parameter_stats["t_2m:C"]
-            assert -50 <= temp_stats['min'] <= 60, f"Temperature minimum {temp_stats['min']}°C is outside reasonable range"
-            assert -50 <= temp_stats['max'] <= 60, f"Temperature maximum {temp_stats['max']}°C is outside reasonable range"
+            assert (
+                -50 <= temp_stats["min"] <= 60
+            ), f"Temperature minimum {temp_stats['min']}°C is outside reasonable range"
+            assert (
+                -50 <= temp_stats["max"] <= 60
+            ), f"Temperature maximum {temp_stats['max']}°C is outside reasonable range"
 
         if "rh_2m:p" in parameter_stats:
             humidity_stats = parameter_stats["rh_2m:p"]
-            assert 0 <= humidity_stats['min'] <= 100, f"Humidity minimum {humidity_stats['min']}% is outside reasonable range"
-            assert 0 <= humidity_stats['max'] <= 100, f"Humidity maximum {humidity_stats['max']}% is outside reasonable range"
+            assert (
+                0 <= humidity_stats["min"] <= 100
+            ), f"Humidity minimum {humidity_stats['min']}% is outside reasonable range"
+            assert (
+                0 <= humidity_stats["max"] <= 100
+            ), f"Humidity maximum {humidity_stats['max']}% is outside reasonable range"
 
         if "wind_speed_10m:ms" in parameter_stats:
             wind_stats = parameter_stats["wind_speed_10m:ms"]
-            assert 0 <= wind_stats['min'] <= 50, f"Wind speed minimum {wind_stats['min']} m/s is outside reasonable range"
-            assert 0 <= wind_stats['max'] <= 50, f"Wind speed maximum {wind_stats['max']} m/s is outside reasonable range"
+            assert (
+                0 <= wind_stats["min"] <= 50
+            ), f"Wind speed minimum {wind_stats['min']} m/s is outside reasonable range"
+            assert (
+                0 <= wind_stats["max"] <= 50
+            ), f"Wind speed maximum {wind_stats['max']} m/s is outside reasonable range"
 
         print(f"\n✅ All {len(parameters)} parameters validated successfully!")
 
@@ -185,4 +218,3 @@ if __name__ == "__main__":
     # Run test directly
     test_get_high_resolution_forecast_basic_parameters()
     print("High-resolution forecast test with basic parameters passed!")
-
