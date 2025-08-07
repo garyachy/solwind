@@ -24,6 +24,9 @@ def get_config():
         "Windy": {
             "api_key": os.environ.get("WINDY_API_KEY")
         },
+        "Stormglass": {
+            "api_key": os.environ.get("STORMGLASS_API_KEY")
+        },
         "Location": {
             "latitude": float(os.environ.get("LOCATION_LATITUDE", 0)),
             "longitude": float(os.environ.get("LOCATION_LONGITUDE", 0))

@@ -8,6 +8,8 @@ from visualcrossing_api import VisualCrossingAPI
 from visualcrossing_draw import VisualCrossingForecastDraw
 from meteomatics_api import MeteomaticsAPI
 from meteomatics_draw import MeteomaticsForecastDraw
+from stormglass_api import StormglassAPI
+from stormglass_draw import StormglassForecastDraw
 from combined_draw import CombinedForecastDraw
 from config import get_config
 import logging
@@ -45,10 +47,12 @@ if not any(isinstance(h, StreamlitLogHandler) for h in logger.handlers):
 config = get_config()
 visualcrossing_config = config.get("VisualCrossing", {})
 meteomatics_config = config.get("Meteomatics", {})
+stormglass_config = config.get("Stormglass", {})
 location_config = config.get("Location", {})
 API_KEY = visualcrossing_config.get("api_key")
 METEOMATICS_USERNAME = meteomatics_config.get("username")
 METEOMATICS_PASSWORD = meteomatics_config.get("password")
+STORMGLASS_API_KEY = stormglass_config.get("api_key")
 DEFAULT_LAT = location_config.get("latitude", 50.4501)
 DEFAULT_LON = location_config.get("longitude", 30.5234)
 
@@ -67,7 +71,7 @@ with main_col:
     # Sidebar for navigation
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox(
-        "Choose a page", ["Forecast Plots", "Meteomatics Plots", "API Comparison"]
+        "Choose a page", ["Forecast Plots", "Meteomatics Plots", "Stormglass Plots", "API Comparison"]
     )
 
     # Initialize API and drawing classes
@@ -93,11 +97,25 @@ with main_col:
         return None
 
     @st.cache_resource
+    def get_stormglass_api():
+        if STORMGLASS_API_KEY:
+            return StormglassAPI(STORMGLASS_API_KEY)
+        return None
+
+    @st.cache_resource
+    def get_stormglass_draw():
+        api = get_stormglass_api()
+        if api:
+            return StormglassForecastDraw(api)
+        return None
+
+    @st.cache_resource
     def get_combined_draw():
         vc_api = get_api()
         mm_api = get_meteomatics_api()
-        if vc_api and mm_api:
-            return CombinedForecastDraw(vc_api, mm_api)
+        sg_api = get_stormglass_api()
+        if vc_api and mm_api and sg_api:
+            return CombinedForecastDraw(vc_api, mm_api, sg_api)
         return None
 
     # Forecast Plots Page
@@ -702,11 +720,222 @@ with main_col:
             except Exception as e:
                 st.error(f"Error plotting Meteomatics forecast: {e}")
 
+    # Stormglass Plots Page
+    elif page == "Stormglass Plots":
+        st.title("🌤️ Stormglass Weather Forecast")
+        st.write(
+            "Plot weather forecasts for locations using Stormglass API with 15-minute resolution."
+        )
+
+        # Info about 15-minute resolution
+        st.info(
+            "📊 **High-Resolution Data**: This page uses 15-minute intervals for detailed weather forecasts, providing 4x more data points than standard 1-hour resolution."
+        )
+
+        # Check if Stormglass API is available
+        stormglass_available = STORMGLASS_API_KEY
+        if not stormglass_available:
+            st.error(
+                "Stormglass API key not configured. Please check your configuration."
+            )
+            st.stop()
+
+        # Location input
+        st.subheader("Location Settings")
+        col1, col2 = st.columns(2)
+        with col1:
+            lat = st.number_input(
+                "Latitude",
+                value=float(DEFAULT_LAT),
+                format="%.6f",
+                key="stormglass_lat",
+            )
+        with col2:
+            lon = st.number_input(
+                "Longitude",
+                value=float(DEFAULT_LON),
+                format="%.6f",
+                key="stormglass_lon",
+            )
+
+        # Time range input
+        st.subheader("Time Range Settings")
+        now = datetime.now(UTC).replace(second=0, microsecond=0)
+        minute = (now.minute // 15) * 15
+        aligned_now = now.replace(minute=minute)
+        default_end = aligned_now + timedelta(hours=24)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input(
+                "Start date (UTC)",
+                value=aligned_now.date(),
+                key="stormglass_start_date",
+            )
+            start_time = st.time_input(
+                "Start time (UTC)",
+                value=aligned_now.time(),
+                key="stormglass_start_time",
+            )
+        with col2:
+            end_date = st.date_input(
+                "End date (UTC)", value=default_end.date(), key="stormglass_end_date"
+            )
+            end_time = st.time_input(
+                "End time (UTC)", value=default_end.time(), key="stormglass_end_time"
+            )
+
+        start_dt = datetime.combine(start_date, start_time)
+        end_dt = datetime.combine(end_date, end_time)
+
+        # Multiple locations option
+        st.subheader("Multiple Locations")
+        use_multiple_locations = st.checkbox(
+            "Compare multiple locations", key="stormglass_multiple"
+        )
+
+        locations = [(lat, lon)]
+        if use_multiple_locations:
+            st.write("Add additional locations:")
+            num_extra_locations = st.number_input(
+                "Number of additional locations",
+                min_value=1,
+                max_value=5,
+                value=1,
+                key="stormglass_extra",
+            )
+
+            for i in range(num_extra_locations):
+                col1, col2 = st.columns(2)
+                with col1:
+                    extra_lat = st.number_input(
+                        f"Latitude {i+2}",
+                        value=float(DEFAULT_LAT),
+                        format="%.6f",
+                        key=f"stormglass_extra_lat_{i}",
+                    )
+                with col2:
+                    extra_lon = st.number_input(
+                        f"Longitude {i+2}",
+                        value=float(DEFAULT_LON),
+                        format="%.6f",
+                        key=f"stormglass_extra_lon_{i}",
+                    )
+                locations.append((extra_lat, extra_lon))
+
+        # Plot type selection
+        st.subheader("Plot Type")
+        plot_type = st.selectbox(
+            "Choose plot type",
+            [
+                "Temperature Forecast",
+                "Wind Forecast",
+                "Comprehensive Forecast",
+                "Custom Parameters",
+            ],
+            key="stormglass_plot_type",
+        )
+
+        # Parameters for custom plot
+        if plot_type == "Custom Parameters":
+            stormglass_parameters = [
+                "airTemperature",  # Air temperature
+                "windSpeed",       # Wind speed
+                "windDirection",   # Wind direction
+                "pressure",        # Atmospheric pressure
+                "precipitation",   # Precipitation
+                "humidity",        # Relative humidity
+                "cloudCover",      # Cloud cover
+                "visibility",      # Visibility
+                "gust",            # Wind gust
+                "dewPoint",        # Dew point temperature
+                "groundTemperature", # Ground temperature
+            ]
+
+            selected_parameters = st.multiselect(
+                "Select parameters",
+                options=stormglass_parameters,
+                default=["airTemperature", "windSpeed"],
+                help="Select weather parameters to plot",
+                key="stormglass_parameters",
+            )
+
+            if not selected_parameters:
+                st.warning("Please select at least one parameter.")
+                st.stop()
+
+        # Resolution selection
+        st.subheader("Data Resolution")
+        high_resolution = st.checkbox(
+            "Use high-resolution data (15-minute intervals)",
+            value=True,
+            key="stormglass_high_res",
+        )
+
+        # Button to fetch and plot
+        if st.button("Plot Stormglass Forecast", key="stormglass_plot_btn"):
+            try:
+                stormglass_draw = get_stormglass_draw()
+
+                if stormglass_draw:
+                    # Monkey patch plt.show for Streamlit
+                    def st_show(*args, **kwargs):
+                        st.pyplot(plt.gcf())
+                        plt.close()
+
+                    plt.show = st_show
+
+                    if len(locations) == 1:
+                        st.info(
+                            f"Plotting Stormglass forecast for location: ({lat:.4f}, {lon:.4f})"
+                        )
+                    else:
+                        st.info(
+                            f"Plotting Stormglass forecast for {len(locations)} locations"
+                        )
+
+                    if plot_type == "Temperature Forecast":
+                        stormglass_draw.plot_temperature_forecast(
+                            locations=locations,
+                            start_datetime=start_dt,
+                            end_datetime=end_dt,
+                            high_resolution=high_resolution,
+                        )
+                    elif plot_type == "Wind Forecast":
+                        stormglass_draw.plot_wind_forecast(
+                            locations=locations,
+                            start_datetime=start_dt,
+                            end_datetime=end_dt,
+                            high_resolution=high_resolution,
+                        )
+                    elif plot_type == "Comprehensive Forecast":
+                        stormglass_draw.plot_comprehensive_forecast(
+                            locations=locations,
+                            start_datetime=start_dt,
+                            end_datetime=end_dt,
+                            high_resolution=high_resolution,
+                        )
+                    elif plot_type == "Custom Parameters":
+                        stormglass_draw.plot_parameter_comparison(
+                            locations=locations,
+                            parameters=selected_parameters,
+                            start_datetime=start_dt,
+                            end_datetime=end_dt,
+                            high_resolution=high_resolution,
+                        )
+                else:
+                    st.error(
+                        "Unable to initialize Stormglass API. Please check your configuration."
+                    )
+
+            except Exception as e:
+                st.error(f"Error plotting Stormglass forecast: {e}")
+
 
 # Footer
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Powered by Visual Crossing Weather API & Meteomatics**")
-st.sidebar.markdown("Data provided by Visual Crossing and Meteomatics")
+st.sidebar.markdown("**Powered by Visual Crossing Weather API, Meteomatics & Stormglass**")
+st.sidebar.markdown("Data provided by Visual Crossing, Meteomatics and Stormglass")
 
 with log_col:
     st.markdown("### Log Output")
