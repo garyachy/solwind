@@ -18,6 +18,9 @@
   "Windy": {
     "api_key": "${WINDY_API_KEY}"
   },
+  "Stormglass": {
+    "api_key": "${STORMGLASS_API_KEY}"
+  },
   "Location": {
     "latitude": "${LOCATION_LATITUDE}",
     "longitude": "${LOCATION_LONGITUDE}"

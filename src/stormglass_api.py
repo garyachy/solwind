@@ -3,7 +3,6 @@ import pandas as pd
 import datetime as dt
 from datetime import datetime, timezone
 import logging
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class StormglassAPI:
         if not api_key:
             raise ValueError("API key cannot be empty.")
         self.api_key = api_key
-        self.base_url = "https://api.stormglass.io/v2"
+        self.base_url = "https://api.stormglass.io"
 
     def get_forecast(
         self,
@@ -30,14 +29,14 @@ class StormglassAPI:
         interval=None,
     ):
         """
-        Retrieves weather forecast data from Stormglass API with support for 15-minute resolution.
+        Retrieves weather forecast data from Stormglass API with hourly resolution.
 
         Args:
             locations (list): List of (lat, lon) tuples.
             parameters (list, optional): List of weather parameters. Defaults to ["airTemperature"].
             start_datetime (datetime, optional): Start datetime for the forecast.
             end_datetime (datetime, optional): End datetime for the forecast.
-            interval (str, optional): Data interval. Defaults to "15min" for high-resolution data.
+            interval (str, optional): Data interval. Note: Stormglass API only supports hourly data.
 
         Returns:
             list: List of DataFrames, one for each location.
@@ -58,18 +57,9 @@ class StormglassAPI:
         if end_datetime is None:
             end_datetime = start_datetime + dt.timedelta(hours=24)
 
-        # Default to 15-minute intervals for high-resolution data
-        if interval is None:
-            interval = "15min"
-
-        # Validate interval - Stormglass supports various intervals
-        supported_intervals = ["15min", "30min", "1h", "3h", "6h", "12h", "1d"]
-
-        if interval not in supported_intervals:
-            print(
-                f"Warning: Interval {interval} may not be supported by Stormglass API. "
-                f"Supported intervals: {supported_intervals}"
-            )
+        # Stormglass API only supports hourly data
+        if interval is not None and interval != "1h":
+            logger.warning(f"Stormglass API only supports hourly data. Ignoring interval: {interval}")
 
         results = []
         for lat, lon in locations:
@@ -94,22 +84,24 @@ class StormglassAPI:
                     results.append(df)
                 else:
                     logger.warning(f"No data received for location ({lat}, {lon})")
+                    # Return empty DataFrame with location info for consistency
+                    empty_df = pd.DataFrame(
+                        {
+                            "datetime": pd.date_range(
+                                start=start_datetime, end=end_datetime, freq="1h"
+                            ),
+                            "latitude": lat,
+                            "longitude": lon,
+                        }
+                    )
+                    results.append(empty_df)
 
             except Exception as e:
                 logger.error(
                     f"Error retrieving data for location ({lat}, {lon}): {str(e)}"
                 )
-                # Return empty DataFrame with location info for consistency
-                empty_df = pd.DataFrame(
-                    {
-                        "datetime": pd.date_range(
-                            start=start_datetime, end=end_datetime, freq=interval
-                        ),
-                        "latitude": lat,
-                        "longitude": lon,
-                    }
-                )
-                results.append(empty_df)
+                # Re-raise the exception instead of returning empty data
+                raise
 
         return results
 
@@ -121,7 +113,8 @@ class StormglassAPI:
         end_datetime=None,
     ):
         """
-        Retrieves high-resolution weather forecast data from Stormglass API with 15-minute intervals.
+        Retrieves weather forecast data from Stormglass API with hourly resolution.
+        Note: Stormglass API only provides hourly data, not 15-minute intervals.
 
         Args:
             locations (list): List of (lat, lon) tuples.
@@ -137,7 +130,7 @@ class StormglassAPI:
             parameters=parameters,
             start_datetime=start_datetime,
             end_datetime=end_datetime,
-            interval="15min",
+            interval="1h",
         )
 
     def get_standard_forecast(
@@ -190,26 +183,25 @@ class StormglassAPI:
         Returns:
             pd.DataFrame: DataFrame with weather data.
         """
-        # Convert parameters to Stormglass format
-        stormglass_params = self._convert_parameters(parameters)
-
         # Prepare request parameters
         params = {
             "lat": lat,
             "lng": lon,
-            "params": ",".join(stormglass_params),
-            "start": start_datetime.strftime("%Y-%m-%dT%H:%M:%S"),
-            "end": end_datetime.strftime("%Y-%m-%dT%H:%M:%S"),
+            "params": ",".join(parameters),
+            "source": "sg",  # Use Stormglass source
         }
 
-        if interval != "1h":  # Default is 1h, only specify if different
-            params["timeResolution"] = interval
+        # Add time range if specified
+        if start_datetime:
+            params["start"] = start_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+        if end_datetime:
+            params["end"] = end_datetime.strftime("%Y-%m-%dT%H:%M:%S")
 
         headers = {"Authorization": self.api_key}
 
         try:
             response = requests.get(
-                f"{self.base_url}/forecast", params=params, headers=headers, timeout=30
+                f"{self.base_url}/v1/weather/point", params=params, headers=headers, timeout=30
             )
             response.raise_for_status()
 
@@ -234,11 +226,7 @@ class StormglassAPI:
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error: {str(e)}")
-            # Fallback to mock data if API is unavailable
-            logger.warning("Stormglass API unavailable, using mock data for testing")
-            return self._get_mock_data(
-                start_datetime, end_datetime, interval, parameters
-            )
+            raise
         except Exception as e:
             logger.error(f"Error processing response: {str(e)}")
             raise
@@ -246,39 +234,41 @@ class StormglassAPI:
     def _convert_parameters(self, parameters):
         """
         Convert standard parameter names to Stormglass API format.
+        Note: Stormglass API expects the original parameter names, not converted ones.
+
+        Available parameters (based on Stormglass API documentation):
+        - airTemperature: Air temperature in Celsius
+        - windSpeed: Wind speed in m/s
+        - windDirection: Wind direction in degrees
+        - pressure: Atmospheric pressure in hPa
+        - precipitation: Precipitation in mm
+        - humidity: Relative humidity in %
+        - cloudCover: Cloud cover in %
+        - visibility: Visibility in meters
+        - gust: Wind gust in m/s
+        - currentDirection: Current direction in degrees
+        - currentSpeed: Current speed in m/s
+        - swellDirection: Swell direction in degrees
+        - swellHeight: Swell height in meters
+        - swellPeriod: Swell period in seconds
+        - waterTemperature: Water temperature in Celsius
+        - waveDirection: Wave direction in degrees
+        - waveHeight: Wave height in meters
+        - wavePeriod: Wave period in seconds
+        - windWaveDirection: Wind wave direction in degrees
+        - windWaveHeight: Wind wave height in meters
+        - windWavePeriod: Wind wave period in seconds
+        - seaLevel: Sea level in meters
 
         Args:
             parameters (list): List of standard parameter names.
 
         Returns:
-            list: List of Stormglass parameter names.
+            list: List of Stormglass parameter names (same as input).
         """
-        # Parameter mapping from standard names to Stormglass API names
-        # According to Stormglass API documentation
-        param_mapping = {
-            "airTemperature": "air_temperature",
-            "windSpeed": "wind_speed",
-            "windDirection": "wind_direction",
-            "pressure": "pressure",
-            "precipitation": "precipitation",
-            "humidity": "humidity",
-            "cloudCover": "cloud_cover",
-            "visibility": "visibility",
-            "gust": "wind_gust",
-            "dewPoint": "dew_point",
-            "groundTemperature": "ground_temperature",
-            # Add more mappings as needed
-        }
-
-        converted_params = []
-        for param in parameters:
-            if param in param_mapping:
-                converted_params.append(param_mapping[param])
-            else:
-                # If parameter is not in mapping, use as-is (might be already in Stormglass format)
-                converted_params.append(param)
-
-        return converted_params
+        # Stormglass API expects the original parameter names
+        # No conversion needed - return parameters as-is
+        return parameters
 
     def _flatten_parameter_data(self, df, parameters):
         """
@@ -294,8 +284,10 @@ class StormglassAPI:
         # Stormglass API returns data in format like:
         # {
         #   "time": "2024-01-01T00:00:00+00:00",
-        #   "air_temperature": {"sg": 15.2},
-        #   "wind_speed": {"sg": 5.1}
+        #   "airTemperature": [
+        #     {"source": "sg", "value": 15.2},
+        #     {"source": "noaa", "value": 15.2}
+        #   ]
         # }
 
         flattened_df = df.copy()
@@ -303,79 +295,15 @@ class StormglassAPI:
         for param in parameters:
             if param in flattened_df.columns:
                 # Extract the 'sg' value from nested structure
-                if isinstance(flattened_df[param].iloc[0], dict):
+                if isinstance(flattened_df[param].iloc[0], list):
+                    # Handle array format: [{"source": "sg", "value": 15.2}, ...]
+                    flattened_df[param] = flattened_df[param].apply(
+                        lambda x: next((item["value"] for item in x if item["source"] == "sg"), None) if isinstance(x, list) else x
+                    )
+                elif isinstance(flattened_df[param].iloc[0], dict):
+                    # Handle dict format: {"sg": 15.2} (fallback)
                     flattened_df[param] = flattened_df[param].apply(
                         lambda x: x.get("sg") if isinstance(x, dict) else x
                     )
 
         return flattened_df
-
-    def _get_mock_data(self, start_datetime, end_datetime, interval, parameters):
-        """
-        Generate mock data for testing when the API is unavailable.
-
-        Args:
-            start_datetime (datetime): Start datetime.
-            end_datetime (datetime): End datetime.
-            interval (str): Data interval.
-            parameters (list): List of parameters.
-
-        Returns:
-            pd.DataFrame: Mock data DataFrame.
-        """
-        # Create mock data with the requested parameters
-        time_range = pd.date_range(
-            start=start_datetime, end=end_datetime, freq=interval
-        )
-
-        mock_data = []
-        for t in time_range:
-            row = {"time": t}
-
-            # Add mock values for each parameter
-            for param in parameters:
-                if param == "airTemperature":
-                    row[param] = {
-                        "sg": 15 + 5 * np.sin(t.hour / 24 * 2 * np.pi)
-                    }  # Temperature variation
-                elif param == "windSpeed":
-                    row[param] = {
-                        "sg": 3 + 2 * np.sin(t.hour / 12 * 2 * np.pi)
-                    }  # Wind speed variation
-                elif param == "windDirection":
-                    row[param] = {
-                        "sg": 180 + 30 * np.sin(t.hour / 6 * 2 * np.pi)
-                    }  # Wind direction variation
-                elif param == "pressure":
-                    row[param] = {
-                        "sg": 1013 + 10 * np.sin(t.hour / 8 * 2 * np.pi)
-                    }  # Pressure variation
-                elif param == "precipitation":
-                    row[param] = {
-                        "sg": max(0, 0.1 * np.sin(t.hour / 4 * 2 * np.pi))
-                    }  # Precipitation
-                elif param == "humidity":
-                    row[param] = {
-                        "sg": 60 + 20 * np.sin(t.hour / 6 * 2 * np.pi)
-                    }  # Humidity variation
-                elif param == "cloudCover":
-                    row[param] = {
-                        "sg": 50 + 30 * np.sin(t.hour / 8 * 2 * np.pi)
-                    }  # Cloud cover variation
-                else:
-                    row[param] = {"sg": 0}  # Default value
-
-            mock_data.append(row)
-
-        # Convert to DataFrame
-        df = pd.DataFrame(mock_data)
-
-        # Convert timestamp to datetime
-        if "time" in df.columns:
-            df["datetime"] = pd.to_datetime(df["time"])
-            df = df.drop("time", axis=1)
-
-        # Flatten nested parameter data
-        df = self._flatten_parameter_data(df, parameters)
-
-        return df
