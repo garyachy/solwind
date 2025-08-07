@@ -283,28 +283,34 @@ with main_col:
     # API Comparison Page
     elif page == "API Comparison":
         st.title("🌤️ Weather API Comparison")
-        st.write("Compare weather forecasts from Visual Crossing and Meteomatics APIs.")
+        st.write("Compare weather forecasts from Visual Crossing, Meteomatics, and Stormglass APIs.")
 
-        # Info about 15-minute resolution for Meteomatics
+        # Info about 15-minute resolution for Meteomatics and Stormglass
         st.info(
-            "📊 **Meteomatics High-Resolution**: Meteomatics data uses 15-minute intervals for detailed comparison, while Visual Crossing uses standard hourly intervals."
+            "📊 **High-Resolution Data**: Meteomatics and Stormglass data use 15-minute intervals for detailed comparison, while Visual Crossing uses standard hourly intervals."
         )
 
-        # Check if both APIs are available
+        # Check if APIs are available
         meteomatics_available = METEOMATICS_USERNAME and METEOMATICS_PASSWORD
         visualcrossing_available = API_KEY
+        stormglass_available = STORMGLASS_API_KEY
 
         if not meteomatics_available:
             st.warning(
-                "Meteomatics credentials not configured. Only Visual Crossing data will be shown."
+                "Meteomatics credentials not configured. Only Visual Crossing and Stormglass data will be shown."
             )
 
         if not visualcrossing_available:
             st.warning(
-                "Visual Crossing API key not configured. Only Meteomatics data will be shown."
+                "Visual Crossing API key not configured. Only Meteomatics and Stormglass data will be shown."
             )
 
-        if not meteomatics_available and not visualcrossing_available:
+        if not stormglass_available:
+            st.warning(
+                "Stormglass API key not configured. Only Visual Crossing and Meteomatics data will be shown."
+            )
+
+        if not meteomatics_available and not visualcrossing_available and not stormglass_available:
             st.error("No weather APIs are configured. Please check your configuration.")
             st.stop()
 
@@ -360,23 +366,6 @@ with main_col:
         st.subheader("Parameters to Compare")
         st.write("Select weather parameters to compare between APIs:")
 
-        # Common parameters that both APIs might have
-        common_parameters = [
-            "temp",
-            "temperature",
-            "t_2m:C",  # Temperature
-            "humidity",
-            "rh_2m:p",  # Humidity
-            "windspeed",
-            "wind_speed_10m:ms",  # Wind speed
-            "winddir",
-            "wind_dir_10m:d",  # Wind direction
-            "pressure",
-            "msl_pressure:hPa",  # Pressure
-            "precip",
-            "precip_1h:mm",  # Precipitation
-        ]
-
         # VisualCrossing specific parameters
         visualcrossing_parameters = [
             "temp",  # Temperature
@@ -420,7 +409,23 @@ with main_col:
             "feels_like_2m:C",  # Feels like temperature
         ]
 
-        col1, col2 = st.columns(2)
+        # Stormglass specific parameters
+        stormglass_parameters = [
+            "airTemperature",  # Air temperature
+            "windSpeed",  # Wind speed
+            "windDirection",  # Wind direction
+            "pressure",  # Atmospheric pressure
+            "precipitation",  # Precipitation
+            "humidity",  # Relative humidity
+            "cloudCover",  # Cloud cover
+            "visibility",  # Visibility
+            "gust",  # Wind gust
+            "waterTemperature",  # Water temperature
+            "waveHeight",  # Wave height
+            "wavePeriod",  # Wave period
+        ]
+
+        col1, col2, col3 = st.columns(3)
 
         with col1:
             st.subheader("VisualCrossing Parameters")
@@ -442,9 +447,19 @@ with main_col:
                 help="Choose which Meteomatics parameters to include in the comparison",
             )
 
+        with col3:
+            st.subheader("Stormglass Parameters")
+            selected_stormglass_parameters = st.multiselect(
+                "Select Stormglass parameters",
+                options=stormglass_parameters,
+                default=["airTemperature"],
+                key="comparison_stormglass_parameters",
+                help="Choose which Stormglass parameters to include in the comparison",
+            )
+
         # API settings
         st.subheader("API Settings")
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             unit_group = st.selectbox(
                 "Visual Crossing Unit Group",
@@ -458,6 +473,13 @@ with main_col:
                 options=["mix", "gfs", "ecmwf", "icon"],
                 index=0,
                 key="comparison_model",
+            )
+        with col3:
+            stormglass_high_res = st.checkbox(
+                "Stormglass High Resolution",
+                value=True,
+                key="comparison_stormglass_high_res",
+                help="Use 15-minute intervals for Stormglass data",
             )
 
         # Button to fetch and plot comparison
@@ -480,8 +502,11 @@ with main_col:
                     st.info(
                         f"Meteomatics parameters: {', '.join(selected_meteomatics_parameters)}"
                     )
+                    st.info(
+                        f"Stormglass parameters: {', '.join(selected_stormglass_parameters)}"
+                    )
 
-                    # Use 15-minute intervals for Meteomatics in comparison
+                    # Use 15-minute intervals for Meteomatics and Stormglass in comparison
                     combined_draw.plot_comparison(
                         locations=[(lat, lon)],
                         parameters=selected_meteomatics_parameters,
@@ -493,10 +518,12 @@ with main_col:
                         meteomatics_interval=timedelta(
                             minutes=15
                         ),  # Force 15-minute resolution
+                        stormglass_parameters=selected_stormglass_parameters,
+                        stormglass_high_resolution=stormglass_high_res,
                     )
                 else:
                     st.error(
-                        "Unable to initialize both APIs. Please check your configuration."
+                        "Unable to initialize APIs. Please check your configuration."
                     )
 
             except Exception as e:
@@ -836,70 +863,77 @@ with main_col:
             key="stormglass_plot_type",
         )
 
-        # Parameters for custom plot
-        if plot_type == "Custom Parameters":
-            # All supported Stormglass parameters with descriptions
-            stormglass_parameters = {
-                "airTemperature": "Air temperature (°C)",
-                "windSpeed": "Wind speed (m/s)",
-                "windDirection": "Wind direction (degrees)",
-                "pressure": "Atmospheric pressure (hPa)",
-                "precipitation": "Precipitation (mm)",
-                "humidity": "Relative humidity (%)",
-                "cloudCover": "Cloud cover (%)",
-                "visibility": "Visibility (meters)",
-                "gust": "Wind gust (m/s)",
-                "currentDirection": "Current direction (degrees)",
-                "currentSpeed": "Current speed (m/s)",
-                "swellDirection": "Swell direction (degrees)",
-                "swellHeight": "Swell height (meters)",
-                "swellPeriod": "Swell period (seconds)",
-                "waterTemperature": "Water temperature (°C)",
-                "waveDirection": "Wave direction (degrees)",
-                "waveHeight": "Wave height (meters)",
-                "wavePeriod": "Wave period (seconds)",
-                "windWaveDirection": "Wind wave direction (degrees)",
-                "windWaveHeight": "Wind wave height (meters)",
-                "windWavePeriod": "Wind wave period (seconds)",
-                "seaLevel": "Sea level (meters)"
-            }
+        # Parameters for all plot types
+        # All supported Stormglass parameters with descriptions
+        stormglass_parameters = {
+            "airTemperature": "Air temperature (°C)",
+            "windSpeed": "Wind speed (m/s)",
+            "windDirection": "Wind direction (degrees)",
+            "pressure": "Atmospheric pressure (hPa)",
+            "precipitation": "Precipitation (mm)",
+            "humidity": "Relative humidity (%)",
+            "cloudCover": "Cloud cover (%)",
+            "visibility": "Visibility (meters)",
+            "gust": "Wind gust (m/s)",
+            "currentDirection": "Current direction (degrees)",
+            "currentSpeed": "Current speed (m/s)",
+            "swellDirection": "Swell direction (degrees)",
+            "swellHeight": "Swell height (meters)",
+            "swellPeriod": "Swell period (seconds)",
+            "waterTemperature": "Water temperature (°C)",
+            "waveDirection": "Wave direction (degrees)",
+            "waveHeight": "Wave height (meters)",
+            "wavePeriod": "Wave period (seconds)",
+            "windWaveDirection": "Wind wave direction (degrees)",
+            "windWaveHeight": "Wind wave height (meters)",
+            "windWavePeriod": "Wind wave period (seconds)",
+            "seaLevel": "Sea level (meters)"
+        }
 
-            # Create options list with descriptions
-            parameter_options = [f"{param} - {desc}" for param, desc in stormglass_parameters.items()]
-            
-            # Add "Select All" option
-            all_parameters = list(stormglass_parameters.keys())
-            parameter_options.insert(0, "Select All Parameters")
-            
-            selected_options = st.multiselect(
-                "Select parameters",
-                options=parameter_options,
-                default=["airTemperature - Air temperature (°C)", "windSpeed - Wind speed (m/s)"],
-                help="Select weather parameters to plot. Choose 'Select All Parameters' to include all available parameters.",
-                key="stormglass_parameters",
-            )
+        # Create options list with descriptions
+        parameter_options = [f"{param} - {desc}" for param, desc in stormglass_parameters.items()]
+        
+        # Add "Select All" option
+        all_parameters = list(stormglass_parameters.keys())
+        parameter_options.insert(0, "Select All Parameters")
+        
+        # Default parameters based on plot type
+        default_params = {
+            "Temperature Forecast": ["airTemperature - Air temperature (°C)"],
+            "Wind Forecast": ["windSpeed - Wind speed (m/s)", "windDirection - Wind direction (degrees)"],
+            "Comprehensive Forecast": ["airTemperature - Air temperature (°C)", "windSpeed - Wind speed (m/s)", "pressure - Atmospheric pressure (hPa)", "humidity - Relative humidity (%)"],
+            "Custom Parameters": ["airTemperature - Air temperature (°C)", "windSpeed - Wind speed (m/s)"]
+        }
+        
+        selected_options = st.multiselect(
+            "Select parameters",
+            options=parameter_options,
+            default=default_params.get(plot_type, ["airTemperature - Air temperature (°C)"]),
+            help="Select weather parameters to plot. Choose 'Select All Parameters' to include all available parameters.",
+            key="stormglass_parameters",
+        )
 
-            # Process selected parameters
-            selected_parameters = []
-            for option in selected_options:
-                if option == "Select All Parameters":
-                    selected_parameters = all_parameters
-                    break
-                else:
-                    # Extract parameter name from "param - description" format
-                    param_name = option.split(" - ")[0]
-                    selected_parameters.append(param_name)
+        # Process selected parameters
+        selected_parameters = []
+        for option in selected_options:
+            if option == "Select All Parameters":
+                selected_parameters = all_parameters
+                break
+            else:
+                # Extract parameter name from "param - description" format
+                param_name = option.split(" - ")[0]
+                selected_parameters.append(param_name)
 
-            if not selected_parameters:
-                st.warning("Please select at least one parameter.")
-                st.stop()
-            
-            # Show selected parameters info
-            if selected_parameters:
-                if len(selected_parameters) == len(all_parameters):
-                    st.success(f"✅ Selected all {len(selected_parameters)} available Stormglass parameters")
-                else:
-                    st.info(f"📊 Selected {len(selected_parameters)} parameters: {', '.join(selected_parameters)}")
+        if not selected_parameters:
+            st.warning("Please select at least one parameter.")
+            st.stop()
+        
+        # Show selected parameters info
+        if selected_parameters:
+            if len(selected_parameters) == len(all_parameters):
+                st.success(f"✅ Selected all {len(selected_parameters)} available Stormglass parameters")
+            else:
+                st.info(f"📊 Selected {len(selected_parameters)} parameters: {', '.join(selected_parameters)}")
 
         # Resolution selection
         st.subheader("Data Resolution")
@@ -931,23 +965,27 @@ with main_col:
                             f"Plotting Stormglass forecast for {len(locations)} locations"
                         )
 
+                    # Use selected parameters for all plot types
                     if plot_type == "Temperature Forecast":
-                        stormglass_draw.plot_temperature_forecast(
+                        stormglass_draw.plot_parameter_comparison(
                             locations=locations,
+                            parameters=selected_parameters,
                             start_datetime=start_dt,
                             end_datetime=end_dt,
                             high_resolution=high_resolution,
                         )
                     elif plot_type == "Wind Forecast":
-                        stormglass_draw.plot_wind_forecast(
+                        stormglass_draw.plot_parameter_comparison(
                             locations=locations,
+                            parameters=selected_parameters,
                             start_datetime=start_dt,
                             end_datetime=end_dt,
                             high_resolution=high_resolution,
                         )
                     elif plot_type == "Comprehensive Forecast":
-                        stormglass_draw.plot_comprehensive_forecast(
+                        stormglass_draw.plot_parameter_comparison(
                             locations=locations,
+                            parameters=selected_parameters,
                             start_datetime=start_dt,
                             end_datetime=end_dt,
                             high_resolution=high_resolution,

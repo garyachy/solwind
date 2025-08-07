@@ -1,5 +1,5 @@
 """
-CombinedForecastDraw - class for building weather data charts comparing Visual Crossing and Meteomatics APIs.
+CombinedForecastDraw - class for building weather data charts comparing Visual Crossing, Meteomatics, and Stormglass APIs.
 """
 
 import pandas as pd
@@ -10,56 +10,72 @@ from datetime import timedelta
 
 
 class CombinedForecastDraw:
-    def __init__(self, visualcrossing_api, meteomatics_api):
+    def __init__(self, visualcrossing_api, meteomatics_api, stormglass_api=None):
         """
-        Initializes the CombinedForecastDraw with both API instances.
+        Initializes the CombinedForecastDraw with API instances.
         Args:
             visualcrossing_api: An instance of the VisualCrossingAPI class.
             meteomatics_api: An instance of the MeteomaticsAPI class.
+            stormglass_api: An instance of the StormglassAPI class (optional).
         """
         self.visualcrossing_api = visualcrossing_api
         self.meteomatics_api = meteomatics_api
+        self.stormglass_api = stormglass_api
 
-    def _map_parameters(self, visualcrossing_parameters=None, meteomatics_parameters=None):
+    def _map_parameters(self, visualcrossing_parameters=None, meteomatics_parameters=None, stormglass_parameters=None):
         """
-        Maps parameters between VisualCrossing and Meteomatics for comparison.
+        Maps parameters between VisualCrossing, Meteomatics, and Stormglass for comparison.
         
         Args:
             visualcrossing_parameters (list, optional): VisualCrossing parameters
             meteomatics_parameters (list, optional): Meteomatics parameters
+            stormglass_parameters (list, optional): Stormglass parameters
             
         Returns:
-            tuple: (mapped_vc_params, mapped_mm_params, comparison_params)
+            tuple: (mapped_vc_params, mapped_mm_params, mapped_sg_params, comparison_params)
         """
         # Parameter mapping between APIs
         parameter_mapping = {
             # Temperature
             "temp": "t_2m:C",
             "feelslike": "feels_like_2m:C",
+            "airTemperature": "t_2m:C",  # Stormglass to Meteomatics
+            "temp": "airTemperature",  # VisualCrossing to Stormglass
             
             # Humidity
             "humidity": "rh_2m:p",
             "dew": "dew_point_2m:C",
+            "humidity": "humidity",  # VisualCrossing to Stormglass
             
             # Wind
             "windspeed": "wind_speed_10m:ms",
             "winddir": "wind_dir_10m:d",
+            "windSpeed": "wind_speed_10m:ms",  # Stormglass to Meteomatics
+            "windDirection": "wind_dir_10m:d",  # Stormglass to Meteomatics
+            "windspeed": "windSpeed",  # VisualCrossing to Stormglass
+            "winddir": "windDirection",  # VisualCrossing to Stormglass
             
             # Pressure
             "pressure": "msl_pressure:hPa",
+            "pressure": "pressure",  # VisualCrossing to Stormglass
             
             # Precipitation
             "precip": "precip_1h:mm",
             "precip_total": "precip_total:mm",
+            "precipitation": "precip_1h:mm",  # Stormglass to Meteomatics
+            "precip": "precipitation",  # VisualCrossing to Stormglass
             
             # Solar
             "solarradiation": "solar_radiation:W",
             
             # Cloud cover
             "cloudcover": "cloud_cover:p",
+            "cloudCover": "cloud_cover:p",  # Stormglass to Meteomatics
+            "cloudcover": "cloudCover",  # VisualCrossing to Stormglass
             
             # Visibility
             "visibility": "visibility:m",
+            "visibility": "visibility",  # VisualCrossing to Stormglass
         }
         
         # Reverse mapping
@@ -87,6 +103,17 @@ class CombinedForecastDraw:
                     # Keep unmapped parameters
                     mapped_mm_params.append(param)
         
+        # Map Stormglass parameters to Meteomatics
+        mapped_sg_params = stormglass_parameters
+        if stormglass_parameters:
+            mapped_sg_params = []
+            for param in stormglass_parameters:
+                if param in parameter_mapping:
+                    mapped_sg_params.append(param)
+                else:
+                    # Keep unmapped parameters
+                    mapped_sg_params.append(param)
+        
         # Create comparison parameters list
         comparison_params = []
         if visualcrossing_parameters:
@@ -99,12 +126,18 @@ class CombinedForecastDraw:
         if meteomatics_parameters:
             for param in meteomatics_parameters:
                 if param in reverse_mapping:
-                    if f"{reverse_mapping[param]} (VC) vs {param} (MM)" not in comparison_params:
-                        comparison_params.append(f"{reverse_mapping[param]} (VC) vs {param} (MM)")
+                    comparison_params.append(f"{reverse_mapping[param]} (VC) vs {param} (MM)")
                 else:
                     comparison_params.append(f"{param} (MM only)")
         
-        return mapped_vc_params, mapped_mm_params, comparison_params
+        if stormglass_parameters:
+            for param in stormglass_parameters:
+                if param in parameter_mapping:
+                    comparison_params.append(f"{param} (SG) vs {parameter_mapping[param]} (MM)")
+                else:
+                    comparison_params.append(f"{param} (SG only)")
+        
+        return mapped_vc_params, mapped_mm_params, mapped_sg_params, comparison_params
 
     def plot_comparison(
         self,
@@ -117,6 +150,8 @@ class CombinedForecastDraw:
         interval=None,
         visualcrossing_parameters=None,
         meteomatics_interval=None,
+        stormglass_parameters=None,
+        stormglass_high_resolution=True,
         figsize=(14, 6),
         time_format="%H:%M",
         date_format="%Y-%m-%d",
@@ -124,7 +159,7 @@ class CombinedForecastDraw:
         location_names=None,
     ):
         """
-        Plots comparison of weather parameters from both Visual Crossing and Meteomatics APIs.
+        Plots comparison of weather parameters from Visual Crossing, Meteomatics, and Stormglass APIs.
 
         Args:
             locations (list): List of (lat, lon) tuples.
@@ -136,13 +171,15 @@ class CombinedForecastDraw:
             interval (timedelta, optional): Data interval for Meteomatics. Defaults to 1 hour.
             visualcrossing_parameters (list, optional): List of Visual Crossing parameters to compare. If None, uses all available.
             meteomatics_interval (timedelta, optional): Specific interval for Meteomatics API. Overrides interval if provided.
+            stormglass_parameters (list, optional): List of Stormglass parameters to compare.
+            stormglass_high_resolution (bool): Whether to use high-resolution data for Stormglass (default: True).
             figsize (tuple): Figure size for the plot.
             time_format (str): Format for time display on x-axis (default: "%H:%M").
             date_format (str): Format for date display on x-axis (default: "%Y-%m-%d").
             show_grid (bool): Whether to show grid on plots (default: True).
             location_names (list, optional): List of names for locations. If None, uses coordinates.
         """
-        # Get data from both APIs
+        # Get data from all APIs
         try:
             vc_results = self.visualcrossing_api.get_forecast(
                 locations,
@@ -170,6 +207,28 @@ class CombinedForecastDraw:
             print(f"Error fetching Meteomatics data: {e}")
             mm_results = []
 
+        # Get Stormglass data if API is available
+        sg_results = []
+        if self.stormglass_api and stormglass_parameters:
+            try:
+                if stormglass_high_resolution:
+                    sg_results = self.stormglass_api.get_high_resolution_forecast(
+                        locations=locations,
+                        parameters=stormglass_parameters,
+                        start_datetime=start_datetime,
+                        end_datetime=end_datetime,
+                    )
+                else:
+                    sg_results = self.stormglass_api.get_standard_forecast(
+                        locations=locations,
+                        parameters=stormglass_parameters,
+                        start_datetime=start_datetime,
+                        end_datetime=end_datetime,
+                    )
+            except Exception as e:
+                print(f"Error fetching Stormglass data: {e}")
+                sg_results = []
+
         # Check if there is data from at least one API
         valid_vc_results = [
             (df, loc, "Visual Crossing") 
@@ -181,9 +240,14 @@ class CombinedForecastDraw:
             for df, loc in zip(mm_results, locations) 
             if not df.empty
         ]
+        valid_sg_results = [
+            (df, loc, "Stormglass") 
+            for df, loc in zip(sg_results, locations) 
+            if not df.empty
+        ]
 
-        if not valid_vc_results and not valid_mm_results:
-            print("No data available from either API for comparison.")
+        if not valid_vc_results and not valid_mm_results and not valid_sg_results:
+            print("No data available from any API for comparison.")
             return
 
         # Define location names
@@ -191,13 +255,19 @@ class CombinedForecastDraw:
             location_names = [f"{lat:.4f}, {lon:.4f}" for lat, lon in locations]
 
         # Map parameters between APIs
-        mapped_vc_params, mapped_mm_params, comparison_params = self._map_parameters(
-            visualcrossing_parameters, parameters
+        mapped_vc_params, mapped_mm_params, mapped_sg_params, comparison_params = self._map_parameters(
+            visualcrossing_parameters, parameters, stormglass_parameters
         )
         
         # Build graphs for each parameter
-        for param in parameters:
-            # Check if parameter exists in data from both APIs
+        all_parameters = set()
+        if parameters:
+            all_parameters.update(parameters)
+        if stormglass_parameters:
+            all_parameters.update(stormglass_parameters)
+        
+        for param in all_parameters:
+            # Check if parameter exists in data from any API
             available_data = []
             
             # Add Visual Crossing data
@@ -209,98 +279,51 @@ class CombinedForecastDraw:
             for df, loc, api_name in valid_mm_results:
                 if param in df.columns:
                     available_data.append((df, loc, api_name))
-
+            
+            # Add Stormglass data
+            for df, loc, api_name in valid_sg_results:
+                if param in df.columns:
+                    available_data.append((df, loc, api_name))
+            
             if not available_data:
-                print(f"Parameter '{param}' not found in data from either API.")
                 continue
-
-            # Create graph for this parameter
+            
+            # Create the plot
             fig, ax = plt.subplots(figsize=figsize)
-
-            # Define time range
-            all_timestamps = []
-            for df, _, _ in available_data:
-                all_timestamps.extend(df["datetime"].tolist())
-
-            if not all_timestamps:
-                continue
-
-            time_range = max(all_timestamps) - min(all_timestamps)
-
-            # Build lines for each location and API
-            colors = plt.cm.Set3(np.linspace(0, 1, len(available_data)))
-            for i, (df, loc, api_name) in enumerate(available_data):
-                loc_idx = locations.index(loc)
-                loc_name = (
-                    location_names[loc_idx]
-                    if loc_idx < len(location_names)
-                    else f"{loc[0]:.4f}, {loc[1]:.4f}"
-                )
-
-                # Create label with location and API name
-                label = f"{loc_name} ({api_name})"
-
+            
+            # Define colors for different APIs
+            api_colors = {
+                "Visual Crossing": "blue",
+                "Meteomatics": "red", 
+                "Stormglass": "green"
+            }
+            
+            for df, loc, api_name in available_data:
+                lat, lon = loc
+                location_label = f"{api_name} ({lat:.2f}, {lon:.2f})"
+                
                 ax.plot(
                     df["datetime"],
                     df[param],
-                    label=label,
+                    label=location_label,
+                    color=api_colors.get(api_name, "black"),
                     linewidth=2,
                     marker="o",
                     markersize=4,
-                    color=colors[i],
-                    alpha=0.8,
                 )
-
-            # Graph settings
-            ax.set_title(
-                f"Comparison of parameter '{param}' - Visual Crossing vs Meteomatics",
-                fontsize=14,
-                fontweight="bold",
-            )
-            ax.set_ylabel(param, fontsize=12, fontweight="bold")
-            ax.legend(fontsize=10, loc="best")
-
-            # Grid settings
+            
+            ax.set_xlabel("Time")
+            ax.set_ylabel(param)
+            ax.set_title(f"{param} Comparison")
+            ax.legend()
             if show_grid:
-                ax.grid(True, alpha=0.3, linestyle="--")
-
-            # Time axis formatting - always show hours with dates
-            # Determine if dates need to be shown
-            if time_range > timedelta(hours=12):
-                # For ranges more than 12 hours show date and time
-                ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
-                ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
-                ax.xaxis.set_minor_locator(mdates.HourLocator(interval=1))
-            else:
-                # For shorter ranges show only hours
-                ax.xaxis.set_major_formatter(mdates.DateFormatter(time_format))
-                ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
-                ax.xaxis.set_minor_locator(mdates.MinuteLocator(interval=30))
-
-            # Add hour labels near the graph
-            time_range_str = f"{min(all_timestamps).strftime('%H:%M')} - {max(all_timestamps).strftime('%H:%M')}"
-            ax.text(
-                0.02,
-                0.95,
-                f"Time: {time_range_str}",
-                transform=ax.transAxes,
-                fontsize=10,
-                fontweight="bold",
-                verticalalignment="top",
-                bbox=dict(
-                    boxstyle="round,pad=0.3",
-                    facecolor="white",
-                    alpha=0.9,
-                    edgecolor="gray",
-                ),
-            )
-
-            # Rotate labels
-            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
-            plt.setp(ax.xaxis.get_minorticklabels(), rotation=45, ha="right")
-
-            ax.set_xlabel("Time", fontsize=12, fontweight="bold")
-
+                ax.grid(True, alpha=0.3)
+            
+            # Format x-axis
+            ax.xaxis.set_major_formatter(mdates.DateFormatter(time_format))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
+            
             plt.tight_layout()
             plt.show()
 
