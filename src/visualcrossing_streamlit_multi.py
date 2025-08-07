@@ -838,31 +838,68 @@ with main_col:
 
         # Parameters for custom plot
         if plot_type == "Custom Parameters":
-            stormglass_parameters = [
-                "airTemperature",  # Air temperature
-                "windSpeed",       # Wind speed
-                "windDirection",   # Wind direction
-                "pressure",        # Atmospheric pressure
-                "precipitation",   # Precipitation
-                "humidity",        # Relative humidity
-                "cloudCover",      # Cloud cover
-                "visibility",      # Visibility
-                "gust",            # Wind gust
-                "dewPoint",        # Dew point temperature
-                "groundTemperature", # Ground temperature
-            ]
+            # All supported Stormglass parameters with descriptions
+            stormglass_parameters = {
+                "airTemperature": "Air temperature (°C)",
+                "windSpeed": "Wind speed (m/s)",
+                "windDirection": "Wind direction (degrees)",
+                "pressure": "Atmospheric pressure (hPa)",
+                "precipitation": "Precipitation (mm)",
+                "humidity": "Relative humidity (%)",
+                "cloudCover": "Cloud cover (%)",
+                "visibility": "Visibility (meters)",
+                "gust": "Wind gust (m/s)",
+                "currentDirection": "Current direction (degrees)",
+                "currentSpeed": "Current speed (m/s)",
+                "swellDirection": "Swell direction (degrees)",
+                "swellHeight": "Swell height (meters)",
+                "swellPeriod": "Swell period (seconds)",
+                "waterTemperature": "Water temperature (°C)",
+                "waveDirection": "Wave direction (degrees)",
+                "waveHeight": "Wave height (meters)",
+                "wavePeriod": "Wave period (seconds)",
+                "windWaveDirection": "Wind wave direction (degrees)",
+                "windWaveHeight": "Wind wave height (meters)",
+                "windWavePeriod": "Wind wave period (seconds)",
+                "seaLevel": "Sea level (meters)"
+            }
 
-            selected_parameters = st.multiselect(
+            # Create options list with descriptions
+            parameter_options = [f"{param} - {desc}" for param, desc in stormglass_parameters.items()]
+            
+            # Add "Select All" option
+            all_parameters = list(stormglass_parameters.keys())
+            parameter_options.insert(0, "Select All Parameters")
+            
+            selected_options = st.multiselect(
                 "Select parameters",
-                options=stormglass_parameters,
-                default=["airTemperature", "windSpeed"],
-                help="Select weather parameters to plot",
+                options=parameter_options,
+                default=["airTemperature - Air temperature (°C)", "windSpeed - Wind speed (m/s)"],
+                help="Select weather parameters to plot. Choose 'Select All Parameters' to include all available parameters.",
                 key="stormglass_parameters",
             )
+
+            # Process selected parameters
+            selected_parameters = []
+            for option in selected_options:
+                if option == "Select All Parameters":
+                    selected_parameters = all_parameters
+                    break
+                else:
+                    # Extract parameter name from "param - description" format
+                    param_name = option.split(" - ")[0]
+                    selected_parameters.append(param_name)
 
             if not selected_parameters:
                 st.warning("Please select at least one parameter.")
                 st.stop()
+            
+            # Show selected parameters info
+            if selected_parameters:
+                if len(selected_parameters) == len(all_parameters):
+                    st.success(f"✅ Selected all {len(selected_parameters)} available Stormglass parameters")
+                else:
+                    st.info(f"📊 Selected {len(selected_parameters)} parameters: {', '.join(selected_parameters)}")
 
         # Resolution selection
         st.subheader("Data Resolution")

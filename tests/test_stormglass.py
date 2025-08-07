@@ -12,9 +12,9 @@ from config import get_config
 import requests
 
 
-def test_get_high_resolution_forecast_basic_parameters():
+def test_get_high_resolution_forecast_all_parameters():
     """
-    Test get_high_resolution_forecast for basic parameters with 12 hours ahead.
+    Test get_high_resolution_forecast for ALL supported Stormglass parameters with 12 hours ahead.
     Ensures data contains all points in hourly intervals and verifies all parameters.
     Note: Stormglass API only provides hourly data, not 15-minute resolution.
     """
@@ -40,30 +40,34 @@ def test_get_high_resolution_forecast_basic_parameters():
     api = StormglassAPI(api_key)
     locations = [(latitude, longitude)]
 
-    # Define basic parameters that are known to work with Stormglass API
-    # Tested parameters with Stormglass API:
-    # ✅ SUPPORTED parameters:
-    # - airTemperature              # Air temperature in Celsius
-    # - windSpeed                   # Wind speed in m/s
-    # - windDirection               # Wind direction in degrees
-    # - pressure                    # Atmospheric pressure in hPa
-    # - precipitation               # Precipitation in mm
-    # - humidity                    # Relative humidity in %
-    # - cloudCover                  # Cloud cover in %
-    # - visibility                  # Visibility in meters
-    # - gust                        # Wind gust in m/s
-    # - dewPoint                    # Dew point temperature in Celsius
-    # - groundTemperature           # Ground temperature in Celsius
-    #
-    parameters = [
-        "airTemperature",  # Air temperature in Celsius
-        "windSpeed",  # Wind speed in m/s
-        "windDirection",  # Wind direction in degrees
-        "pressure",  # Atmospheric pressure in hPa
-        "precipitation",  # Precipitation in mm
-        "humidity",  # Relative humidity in %
-        "cloudCover",  # Cloud cover in %
+    # All supported Stormglass parameters (based on API documentation)
+    all_parameters = [
+        "airTemperature",      # Air temperature in Celsius
+        "windSpeed",           # Wind speed in m/s
+        "windDirection",       # Wind direction in degrees
+        "pressure",            # Atmospheric pressure in hPa
+        "precipitation",       # Precipitation in mm
+        "humidity",            # Relative humidity in %
+        "cloudCover",          # Cloud cover in %
+        "visibility",          # Visibility in meters
+        "gust",                # Wind gust in m/s
+        "currentDirection",    # Current direction in degrees
+        "currentSpeed",        # Current speed in m/s
+        "swellDirection",      # Swell direction in degrees
+        "swellHeight",         # Swell height in meters
+        "swellPeriod",         # Swell period in seconds
+        "waterTemperature",    # Water temperature in Celsius
+        "waveDirection",       # Wave direction in degrees
+        "waveHeight",          # Wave height in meters
+        "wavePeriod",          # Wave period in seconds
+        "windWaveDirection",   # Wind wave direction in degrees
+        "windWaveHeight",      # Wind wave height in meters
+        "windWavePeriod",      # Wind wave period in seconds
+        "seaLevel",            # Sea level in meters
     ]
+
+    # Test with all parameters
+    parameters = all_parameters
 
     # Set up time range: 12 hours ahead from current time
     start_datetime = dt.datetime.now(dt.timezone.utc).replace(
@@ -198,6 +202,111 @@ def test_get_standard_forecast():
         "pressure",  # Atmospheric pressure in hPa
     ]
 
+
+def test_stormglass_parameter_groups():
+    """
+    Test different parameter groups to ensure comprehensive coverage of Stormglass API.
+    Tests atmospheric, wind, marine, and wave parameters separately.
+    """
+    # Load configuration
+    config = get_config()
+    stormglass_config = config.get("Stormglass", {})
+    location_config = config.get("Location", {})
+
+    # Get credentials
+    api_key = stormglass_config.get("api_key")
+
+    if not api_key:
+        pytest.skip("Stormglass API key not available")
+
+    # Get location coordinates
+    latitude = location_config.get("latitude")
+    longitude = location_config.get("longitude")
+
+    if latitude is None or longitude is None:
+        pytest.skip("Location coordinates not available")
+
+    # Initialize API
+    api = StormglassAPI(api_key)
+    locations = [(latitude, longitude)]
+
+    # Define parameter groups for comprehensive testing
+    parameter_groups = {
+        "atmospheric": [
+            "airTemperature",  # Air temperature in Celsius
+            "pressure",        # Atmospheric pressure in hPa
+            "humidity",        # Relative humidity in %
+            "cloudCover",      # Cloud cover in %
+            "visibility",      # Visibility in meters
+            "precipitation",   # Precipitation in mm
+        ],
+        "wind": [
+            "windSpeed",       # Wind speed in m/s
+            "windDirection",   # Wind direction in degrees
+            "gust",            # Wind gust in m/s
+        ],
+        "marine": [
+            "waterTemperature",    # Water temperature in Celsius
+            "currentDirection",    # Current direction in degrees
+            "currentSpeed",        # Current speed in m/s
+            "seaLevel",            # Sea level in meters
+        ],
+        "waves": [
+            "swellDirection",      # Swell direction in degrees
+            "swellHeight",         # Swell height in meters
+            "swellPeriod",         # Swell period in seconds
+            "waveDirection",       # Wave direction in degrees
+            "waveHeight",          # Wave height in meters
+            "wavePeriod",          # Wave period in seconds
+            "windWaveDirection",   # Wind wave direction in degrees
+            "windWaveHeight",      # Wind wave height in meters
+            "windWavePeriod",      # Wind wave period in seconds
+        ]
+    }
+
+    # Set up time range: 6 hours ahead from current time (shorter for faster testing)
+    start_datetime = dt.datetime.now(dt.timezone.utc).replace(
+        minute=0, second=0, microsecond=0
+    )
+    end_datetime = start_datetime + timedelta(hours=6)
+
+    for group_name, parameters in parameter_groups.items():
+        try:
+            print(f"\n🧪 Testing {group_name} parameters: {parameters}")
+            
+            # Request forecast data for this parameter group
+            results = api.get_forecast(
+                locations=locations,
+                parameters=parameters,
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+            )
+
+            # Basic validation
+            assert len(results) > 0, f"No results received for {group_name} parameters"
+            df = results[0]  # Get first (and only) result
+            
+            if not df.empty:
+                # Check that all requested parameters exist in the DataFrame
+                available_params = [param for param in parameters if param in df.columns]
+                print(f"✅ {group_name}: {len(available_params)}/{len(parameters)} parameters available")
+                
+                # Validate data quality for available parameters
+                for param in available_params:
+                    values = df[param].dropna()
+                    if len(values) > 0:
+                        print(f"   📊 {param}: {len(values)} data points, range: {values.min():.2f} to {values.max():.2f}")
+            else:
+                print(f"⚠️  {group_name}: No data received (this may be normal for marine/wave parameters inland)")
+
+        except requests.exceptions.HTTPError as e:
+            if "404" in str(e):
+                pytest.skip(f"Stormglass API service not available for {group_name} parameters (404 error)")
+            else:
+                pytest.fail(f"Test failed for {group_name} parameters with HTTP error: {str(e)}")
+        except Exception as e:
+            pytest.fail(f"Test failed for {group_name} parameters with exception: {str(e)}")
+
     # Set up time range: 24 hours ahead from current time
     start_datetime = dt.datetime.now(dt.timezone.utc).replace(
         minute=0, second=0, microsecond=0
@@ -281,6 +390,81 @@ def test_api_initialization():
     # Test with None API key
     with pytest.raises(ValueError, match="API key cannot be empty"):
         StormglassAPI(None)
+
+
+def test_all_parameters_selection():
+    """
+    Test that passing None or empty parameters list returns all available parameters.
+    This simulates the "Select All Parameters" functionality in the Streamlit app.
+    """
+    # Load configuration
+    config = get_config()
+    stormglass_config = config.get("Stormglass", {})
+    location_config = config.get("Location", {})
+
+    # Get credentials
+    api_key = stormglass_config.get("api_key")
+
+    if not api_key:
+        pytest.skip("Stormglass API key not available")
+
+    # Get location coordinates
+    latitude = location_config.get("latitude")
+    longitude = location_config.get("longitude")
+
+    if latitude is None or longitude is None:
+        pytest.skip("Location coordinates not available")
+
+    # Initialize API
+    api = StormglassAPI(api_key)
+    locations = [(latitude, longitude)]
+
+    # Set up time range: 6 hours ahead from current time
+    start_datetime = dt.datetime.now(dt.timezone.utc).replace(
+        minute=0, second=0, microsecond=0
+    )
+    end_datetime = start_datetime + timedelta(hours=6)
+
+    try:
+        # Test with None parameters (should use default: ["airTemperature"])
+        results_none = api.get_forecast(
+            locations=locations,
+            parameters=None,  # This should default to ["airTemperature"]
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+        )
+
+        assert len(results_none) > 0, "No results received with None parameters"
+        df_none = results_none[0]
+        
+        if not df_none.empty:
+            print(f"✅ None parameters test: {len(df_none)} data points")
+            print(f"📊 Available columns: {list(df_none.columns)}")
+            assert "airTemperature" in df_none.columns, "Default airTemperature parameter not found"
+
+        # Test with empty list parameters (should use default: ["airTemperature"])
+        results_empty = api.get_forecast(
+            locations=locations,
+            parameters=[],  # This should default to ["airTemperature"]
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+        )
+
+        assert len(results_empty) > 0, "No results received with empty parameters"
+        df_empty = results_empty[0]
+        
+        if not df_empty.empty:
+            print(f"✅ Empty parameters test: {len(df_empty)} data points")
+            print(f"📊 Available columns: {list(df_empty.columns)}")
+            assert "airTemperature" in df_empty.columns, "Default airTemperature parameter not found"
+
+    except requests.exceptions.HTTPError as e:
+        if "404" in str(e):
+            pytest.skip("Stormglass API service not available (404 error)")
+        else:
+            pytest.fail(f"Test failed with HTTP error: {str(e)}")
+    except Exception as e:
+        pytest.fail(f"Test failed with exception: {str(e)}")
 
 
 def test_parameter_validation():

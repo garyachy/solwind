@@ -46,7 +46,7 @@ class StormglassAPI:
                 "locations must be a non-empty list of (latitude, longitude) tuples."
             )
 
-        if parameters is None:
+        if parameters is None or parameters == []:
             parameters = ["airTemperature"]  # Temperature as default
 
         if start_datetime is None:
